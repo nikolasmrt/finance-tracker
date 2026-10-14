@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTracker — Criar Conta</title>
+    <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <svg class="cyber-logo-icon large" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="url(#cyan-purple-grad-auth)" stroke="#00f0ff" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M18 10L25 14V22L18 26L11 22V14L18 10Z" fill="#030712" stroke="#bd00ff" stroke-width="1.5"/>
+                <circle cx="18" cy="18" r="3" fill="#00f0ff" class="logo-core"/>
+                <defs>
+                    <linearGradient id="cyan-purple-grad-auth" x1="4" y1="2" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#00f0ff" stop-opacity="0.2"/>
+                        <stop offset="1" stop-color="#bd00ff" stop-opacity="0.3"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <h1>Finance<span>Tracker</span></h1>
+</div>
+        <h2>Criar Nova Conta</h2>
+        
+        <form id="register-form">
+            <div class="form-group">
+                <label for="name">Nome Completo</label>
+                <input type="text" id="name" placeholder="Seu nome completo" required>
+            </div>
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" placeholder="seu.email@exemplo.com" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-submit">Registrar</button>
+        </form>
+
+        <p class="auth-redirect">
+            Já tem uma conta? <a href="login.html">Faça login</a>
+        </p>
+    </div>
+
+    <script src="./assets/js/auth.js"></script>
+</body>
+</html>

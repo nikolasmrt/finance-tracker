@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTracker — Controle Financeiro Pessoal</title>
+    <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <svg class="cyber-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="url(#cyan-purple-grad)" stroke="#00f0ff" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M18 10L25 14V22L18 26L11 22V14L18 10Z" fill="#030712" stroke="#bd00ff" stroke-width="1.5"/>
+                <circle cx="18" cy="18" r="3" fill="#00f0ff" class="logo-core"/>
+                <defs>
+                    <linearGradient id="cyan-purple-grad" x1="4" y1="2" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#00f0ff" stop-opacity="0.2"/>
+                        <stop offset="1" stop-color="#bd00ff" stop-opacity="0.3"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <h1>Finance<span>Tracker</span></h1>
+        </div>
+        <div class="user-profile">
+            <span id="user-display">Usuário não logado</span>
+            <button id="logout-btn" class="btn-logout" title="Encerrar sessão">Sair</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <!-- Cards de Resumo (HUD) -->
+        <section class="summary-cards">
+            <div class="card deposits">
+                <h3>DEPÓSITOS (ENTRADAS)</h3>
+                <p id="total-deposits">R$ 0,00</p>
+            </div>
+            <div class="card expenses">
+                <h3>GASTOS (SAÍDAS)</h3>
+                <p id="total-expenses">R$ 0,00</p>
+            </div>
+            <div class="card balance">
+                <h3>SALDO EM CONTA</h3>
+                <p id="net-balance">R$ 0,00</p>
+            </div>
+        </section>
+
+        <!-- Grid de Operações e Histórico -->
+        <div class="dashboard-grid">
+            
+            <!-- Formulário de Nova Movimentação -->
+            <section class="form-section card">
+                <h2>➕ Nova Movimentação</h2>
+                <form id="transaction-form">
+                    <div class="form-group">
+                        <label for="type">Tipo de Operação</label>
+                        <select id="type" required>
+                            <option value="income">Depósito (Entrada)</option>
+                            <option value="expense">Gasto (Saída)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount">Valor (R$)</label>
+                        <input type="number" id="amount" step="0.01" placeholder="0.00" min="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Descrição</label>
+                        <input type="text" id="description" placeholder="Ex: Salário, Aluguel, Supermercado..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">Categoria</label>
+                        <select id="category" required>
+                            <option value="Trabalho">Trabalho</option>
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Moradia">Moradia</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Estudo">Estudo</option>
+                            <option value="Lazer">Lazer</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Registrar Movimentação</button>
+                </form>
+            </section>
+
+            <!-- Histórico Recente de Transações -->
+            <section class="history-section card">
+                <h2>📜 Histórico Recente</h2>
+                <div id="transactions-list" class="transactions-list">
+                    <p class="empty-msg">Nenhuma movimentação registrada ainda.</p>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- GRÁFICO DE COLUNAS ANALÍTICO (Abaixo de todas as outras etapas) -->
+        <section class="chart-section card">
+            <h2>📊 Resumo Analítico por Categoria</h2>
+            <div id="column-chart" class="column-chart-container">
+                <p class="empty-msg">Sem dados suficientes para gerar o gráfico.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="./assets/js/app.js"></script>
+</body>
+</html>

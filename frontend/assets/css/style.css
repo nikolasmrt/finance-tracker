@@ -1,0 +1,500 @@
+/* --- TEMA CYBERPUNK NEON & GLASSMORPHISM --- */
+:root {
+    --bg-main: #030712;
+    --bg-card: rgba(15, 23, 42, 0.7);
+    --bg-input: rgba(2, 6, 23, 0.6);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    
+    /* Cores Neon & Acentos */
+    --neon-cyan: #00f0ff;
+    --neon-purple: #bd00ff;
+    --neon-green: #00ff66;
+    --neon-pink: #ff007f;
+    
+    --success-green: #00ff66;
+    --danger-red: #ff3366;
+    
+    --border-glass: rgba(0, 240, 255, 0.18);
+    --border-glass-hover: rgba(0, 240, 255, 0.5);
+    
+    --shadow-neon-cyan: 0 0 15px rgba(0, 240, 255, 0.25);
+    --shadow-neon-purple: 0 0 20px rgba(189, 0, 255, 0.25);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding-bottom: 3rem;
+    /* Fundo com efeito subtil de grade cibernética */
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(189, 0, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(0, 240, 255, 0.05) 0%, transparent 40%);
+}
+
+/* Navbar Estilo Glassmorphism */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 2.5rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-glass);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+.logo span span {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 12px var(--neon-cyan);
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+#user-display {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid var(--danger-red);
+    color: var(--danger-red);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(255, 51, 102, 0.2);
+}
+
+.btn-logout:hover {
+    background-color: var(--danger-red);
+    color: white;
+    box-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
+}
+
+/* Container Principal */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+/* Cards de Resumo (HUD Neon Glass) */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 1.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-glass);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    border-color: var(--border-glass-hover);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-neon-cyan);
+}
+
+.card h3 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.card p {
+    font-size: 2.2rem;
+    font-weight: 700;
+}
+
+.deposits p { 
+    color: var(--success-green); 
+    text-shadow: 0 0 12px rgba(0, 255, 102, 0.3);
+}
+.expenses p { 
+    color: var(--danger-red); 
+    text-shadow: 0 0 12px rgba(255, 51, 102, 0.3);
+}
+.balance p { 
+    color: var(--neon-cyan); 
+    text-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+/* Grid Principal */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1.75rem;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-section h2, .history-section h2, .chart-section h2 {
+    font-size: 1.15rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+
+/* Formulários Futuristas */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+}
+
+.form-group input, 
+.form-group select {
+    width: 100%;
+    padding: 0.85rem;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-glass);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-group select option {
+    background-color: #0f172a;
+    color: var(--text-primary);
+    padding: 0.5rem;
+}
+
+.form-group input:focus, 
+.form-group select:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 0.85rem;
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+    color: #030712;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 0.75rem;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn-submit:hover {
+    opacity: 0.95;
+    box-shadow: 0 0 25px rgba(189, 0, 255, 0.6);
+    transform: translateY(-1px);
+}
+
+.btn-submit:active {
+    transform: scale(0.98);
+}
+
+/* Histórico de Transações */
+.transactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.transactions-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.transactions-list::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 240, 255, 0.2);
+    border-radius: 4px;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(2, 6, 23, 0.4);
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-glass);
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.transaction-item.income {
+    border-left-color: var(--success-green);
+}
+
+.transaction-item.expense {
+    border-left-color: var(--danger-red);
+}
+
+.transaction-item:hover {
+    background: rgba(2, 6, 23, 0.7);
+    border-color: var(--border-glass-hover);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+}
+
+.tx-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.tx-info strong {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.tx-info span {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.tx-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.tx-amount {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.tx-amount.income { color: var(--success-green); }
+.tx-amount.expense { color: var(--danger-red); }
+
+.btn-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.35rem;
+    transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+    color: var(--danger-red);
+    background-color: rgba(255, 51, 102, 0.1);
+    box-shadow: 0 0 8px rgba(255, 51, 102, 0.3);
+}
+
+/* Gráfico de Colunas Cibernético */
+.chart-section {
+    width: 100%;
+}
+
+.column-chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 240px;
+    padding-top: 1.5rem;
+    border-bottom: 2px solid var(--border-glass);
+    gap: 1rem;
+}
+
+.chart-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.chart-bar {
+    width: 100%;
+    max-width: 45px;
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple));
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-bar:hover {
+    box-shadow: 0 0 20px var(--neon-cyan);
+}
+
+.chart-bar-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
+}
+
+.empty-msg {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 3rem;
+    font-size: 0.95rem;
+    width: 100%;
+}
+
+/* Animações e Cards de Autenticação */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card, .dashboard-grid > section, .summary-cards .card, .auth-card {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+.auth-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-main);
+    background-image: 
+        radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08) 0%, transparent 60%);
+}
+
+.auth-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 2.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-glass);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), var(--shadow-neon-cyan);
+    width: 100%;
+    max-width: 420px;
+}
+
+.auth-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 12px var(--neon-cyan);
+}
+
+.auth-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.auth-redirect {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.auth-redirect a {
+    color: var(--neon-cyan);
+    text-decoration: none;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.auth-redirect a:hover {
+    text-decoration: underline;
+}
+
+/* --- Estilização e Animação do Logotipo Cibernético --- */
+.cyber-logo-icon {
+    width: 36px;
+    height: 36px;
+    filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6));
+    transition: transform 0.3s ease;
+}
+
+.cyber-logo-icon.large {
+    width: 48px;
+    height: 48px;
+}
+
+.logo:hover .cyber-logo-icon,
+.auth-logo:hover .cyber-logo-icon {
+    transform: rotate(90deg) scale(1.05);
+}
+
+@keyframes pulseCore {
+    0% {
+        opacity: 0.5;
+        filter: drop-shadow(0 0 2px var(--neon-cyan));
+    }
+    50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 10px var(--neon-cyan));
+    }
+    100% {
+        opacity: 0.5;
+        filter: drop-shadow(0 0 2px var(--neon-cyan));
+    }
+}
+
+.logo-core {
+    animation: pulseCore 2.5s infinite ease-in-out;
+}
