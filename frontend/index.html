@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
+    <!-- Notificações Toast Flutuantes -->
+    <div id="toast-container" class="toast-container"></div>
+
     <header class="navbar">
         <div class="logo">
             <svg class="cyber-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -20,29 +23,82 @@
                     </linearGradient>
                 </defs>
             </svg>
-            <h1>Finance<span>Tracker</span></h1>
+            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.0</span></h1>
         </div>
+
         <div class="user-profile">
-            <span id="user-display">Usuário não logado</span>
+            <div class="user-info-chip">
+                <span class="user-status-dot"></span>
+                <span id="user-display">Carregando...</span>
+            </div>
             <button id="logout-btn" class="btn-logout" title="Encerrar sessão">Sair</button>
         </div>
     </header>
 
     <main class="dashboard-container">
         
-        <!-- Cards de Resumo (HUD) -->
+        <!-- Cards de Resumo Principal (HUD) -->
         <section class="summary-cards">
             <div class="card deposits">
-                <h3>DEPÓSITOS (ENTRADAS)</h3>
+                <div class="card-header-flex">
+                    <h3>DEPÓSITOS (ENTRADAS)</h3>
+                    <span class="hud-icon">↗</span>
+                </div>
                 <p id="total-deposits">R$ 0,00</p>
+                <span class="card-subtitle" id="deposits-count">0 entradas registradas</span>
             </div>
             <div class="card expenses">
-                <h3>GASTOS (SAÍDAS)</h3>
+                <div class="card-header-flex">
+                    <h3>GASTOS (SAÍDAS)</h3>
+                    <span class="hud-icon">↘</span>
+                </div>
                 <p id="total-expenses">R$ 0,00</p>
+                <span class="card-subtitle" id="expenses-count">0 saídas registradas</span>
             </div>
             <div class="card balance">
-                <h3>SALDO EM CONTA</h3>
+                <div class="card-header-flex">
+                    <h3>SALDO EM CONTA</h3>
+                    <span class="hud-icon">◈</span>
+                </div>
                 <p id="net-balance">R$ 0,00</p>
+                <span class="card-subtitle" id="balance-status">Balanço líquido</span>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE PREVISÃO INTELIGENTE (30 DIAS) -->
+        <section class="forecast-section card">
+            <div class="forecast-header">
+                <div>
+                    <h2>🔮 Previsão Inteligente & Projeção (30 Dias)</h2>
+                    <p class="forecast-tagline">Análise preditiva em tempo real baseada no seu padrão de gastos e receitas.</p>
+                </div>
+                <div id="forecast-badge" class="forecast-badge badge-neutral">Analisando...</div>
+            </div>
+
+            <div class="forecast-grid">
+                <div class="forecast-metric-card">
+                    <span class="forecast-label">SALDO ESTIMADO EM 30 DIAS</span>
+                    <strong id="forecast-projected-balance" class="forecast-value">R$ 0,00</strong>
+                    <span id="forecast-trend-desc" class="forecast-desc">Calculado com base na média diária</span>
+                </div>
+                <div class="forecast-metric-card">
+                    <span class="forecast-label">MÉDIA DIÁRIA ESTIMADA</span>
+                    <div class="daily-averages">
+                        <div>
+                            <span class="sub-label">Gastos/dia:</span>
+                            <span id="forecast-daily-expense" class="sub-val text-expense">R$ 0,00</span>
+                        </div>
+                        <div>
+                            <span class="sub-label">Entradas/dia:</span>
+                            <span id="forecast-daily-income" class="sub-val text-income">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="forecast-metric-card">
+                    <span class="forecast-label">TAXA DE POUPANÇA ESTIMADA</span>
+                    <strong id="forecast-savings-rate" class="forecast-value text-cyan">0,0%</strong>
+                    <p id="forecast-message" class="forecast-advice">Adicione movimentações para gerar projeções analíticas.</p>
+                </div>
             </div>
         </section>
 
@@ -68,7 +124,7 @@
 
                     <div class="form-group">
                         <label for="description">Descrição</label>
-                        <input type="text" id="description" placeholder="Ex: Salário, Aluguel, Supermercado..." required>
+                        <input type="text" id="description" placeholder="Ex: Salário, Aluguel, Supermercado..." required maxlength="255">
                     </div>
 
                     <div class="form-group">
@@ -80,17 +136,62 @@
                             <option value="Transporte">Transporte</option>
                             <option value="Estudo">Estudo</option>
                             <option value="Lazer">Lazer</option>
+                            <option value="Saúde">Saúde</option>
+                            <option value="Investimentos">Investimentos</option>
                             <option value="Outros">Outros</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="btn-submit">Registrar Movimentação</button>
+                    <div class="form-group">
+                        <label for="transaction_date">Data da Transação</label>
+                        <input type="date" id="transaction_date" required>
+                    </div>
+
+                    <button type="submit" id="btn-submit-tx" class="btn-submit">Registrar Movimentação</button>
                 </form>
             </section>
 
-            <!-- Histórico Recente de Transações -->
+            <!-- Histórico Recente de Transações com Filtros Avançados -->
             <section class="history-section card">
-                <h2>📜 Histórico Recente</h2>
+                <div class="history-header">
+                    <h2>📜 Histórico de Movimentações</h2>
+                    <div class="export-actions">
+                        <button id="btn-export-csv" class="btn-secondary" title="Exportar para planilha Excel / CSV">📥 CSV</button>
+                        <button id="btn-export-json" class="btn-secondary" title="Exportar em formato JSON">📥 JSON</button>
+                    </div>
+                </div>
+
+                <!-- Barra de Filtros e Busca -->
+                <div class="filters-bar">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição..." autocomplete="off">
+                    </div>
+
+                    <div class="filter-controls">
+                        <select id="filter-type">
+                            <option value="">Todos os tipos</option>
+                            <option value="income">Apenas Entradas</option>
+                            <option value="expense">Apenas Saídas</option>
+                        </select>
+
+                        <select id="filter-category">
+                            <option value="">Todas as categorias</option>
+                            <option value="Trabalho">Trabalho</option>
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Moradia">Moradia</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Estudo">Estudo</option>
+                            <option value="Lazer">Lazer</option>
+                            <option value="Saúde">Saúde</option>
+                            <option value="Investimentos">Investimentos</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+
+                        <button id="btn-clear-filters" class="btn-link" title="Limpar filtros">Limpar</button>
+                    </div>
+                </div>
+
+                <!-- Lista de Transações -->
                 <div id="transactions-list" class="transactions-list">
                     <p class="empty-msg">Nenhuma movimentação registrada ainda.</p>
                 </div>
@@ -98,15 +199,97 @@
 
         </div>
 
-        <!-- GRÁFICO DE COLUNAS ANALÍTICO (Abaixo de todas as outras etapas) -->
+        <!-- GRÁFICO DE COLUNAS ANALÍTICO REATIVO -->
         <section class="chart-section card">
-            <h2>📊 Resumo Analítico por Categoria</h2>
+            <div class="chart-header-flex">
+                <div>
+                    <h2>📊 Resumo Analítico por Categoria</h2>
+                    <p class="chart-tagline">Visualização proporcional dos valores categorizados.</p>
+                </div>
+                <div class="chart-mode-buttons">
+                    <button id="chart-tab-all" class="chart-tab active" data-mode="all">Geral</button>
+                    <button id="chart-tab-expense" class="chart-tab" data-mode="expense">Despesas</button>
+                    <button id="chart-tab-income" class="chart-tab" data-mode="income">Receitas</button>
+                </div>
+            </div>
+
             <div id="column-chart" class="column-chart-container">
                 <p class="empty-msg">Sem dados suficientes para gerar o gráfico.</p>
             </div>
         </section>
 
     </main>
+
+    <!-- Modal de Edição de Transação -->
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>✏️ Editar Movimentação</h3>
+                <button id="btn-close-edit-modal" class="btn-close-modal">&times;</button>
+            </div>
+            <form id="edit-transaction-form">
+                <input type="hidden" id="edit-id">
+
+                <div class="form-group">
+                    <label for="edit-type">Tipo de Operação</label>
+                    <select id="edit-type" required>
+                        <option value="income">Depósito (Entrada)</option>
+                        <option value="expense">Gasto (Saída)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-amount">Valor (R$)</label>
+                    <input type="number" id="edit-amount" step="0.01" min="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-description">Descrição</label>
+                    <input type="text" id="edit-description" required maxlength="255">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-category">Categoria</label>
+                    <select id="edit-category" required>
+                        <option value="Trabalho">Trabalho</option>
+                        <option value="Alimentação">Alimentação</option>
+                        <option value="Moradia">Moradia</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Estudo">Estudo</option>
+                        <option value="Lazer">Lazer</option>
+                        <option value="Saúde">Saúde</option>
+                        <option value="Investimentos">Investimentos</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-date">Data da Transação</label>
+                    <input type="date" id="edit-date" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" id="btn-cancel-edit" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-submit-modal">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content card modal-confirm">
+            <div class="modal-header">
+                <h3>⚠️ Confirmar Exclusão</h3>
+                <button id="btn-close-confirm-modal" class="btn-close-modal">&times;</button>
+            </div>
+            <p id="confirm-modal-text">Tem certeza de que deseja remover esta movimentação? Esta ação não pode ser desfeita.</p>
+            <div class="modal-actions">
+                <button id="btn-confirm-cancel" class="btn-secondary">Cancelar</button>
+                <button id="btn-confirm-delete" class="btn-danger">Confirmar Exclusão</button>
+            </div>
+        </div>
+    </div>
 
     <script src="./assets/js/app.js"></script>
 </body>
