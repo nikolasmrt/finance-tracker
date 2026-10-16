@@ -5,7 +5,7 @@
       "root": "frontend",
       "outputDirectory": "."
     },
-    "backend": {
+    "api": {
       "root": ".",
       "framework": "fastapi"
     }
@@ -14,7 +14,7 @@
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "backend"
+        "service": "api"
       }
     },
     {
