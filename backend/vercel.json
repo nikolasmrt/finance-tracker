@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-demo",
+      "schedule": "0 0 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "main.py"
+    }
+  ]
+}

@@ -2,15 +2,19 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>FinanceTracker — Criar Conta</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f0ff">
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/icon.svg">
+    <link rel="stylesheet" href="./assets/css/variables.css">
     <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body class="auth-body">
-    <div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
     <div class="auth-card">
         <div class="auth-logo">
-            <svg class="cyber-logo-icon large" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg class="cyber-logo-icon large" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="url(#cyan-purple-grad-auth)" stroke="#00f0ff" stroke-width="2" stroke-linejoin="round"/>
                 <path d="M18 10L25 14V22L18 26L11 22V14L18 10Z" fill="#030712" stroke="#bd00ff" stroke-width="1.5"/>
                 <circle cx="18" cy="18" r="3" fill="#00f0ff" class="logo-core"/>
@@ -22,21 +26,21 @@
                 </defs>
             </svg>
             <h1>Finance<span>Tracker</span></h1>
-</div>
+        </div>
         <h2>Criar Nova Conta</h2>
-        
+
         <form id="register-form">
             <div class="form-group">
                 <label for="name">Nome Completo</label>
-                <input type="text" id="name" placeholder="Seu nome completo" required>
+                <input type="text" id="name" placeholder="Seu nome completo" required minlength="2" maxlength="100" autocomplete="name">
             </div>
             <div class="form-group">
                 <label for="email">E-mail</label>
-                <input type="email" id="email" placeholder="seu.email@exemplo.com" required>
+                <input type="email" id="email" placeholder="seu.email@exemplo.com" required autocomplete="email">
             </div>
             <div class="form-group">
-                <label for="password">Senha</label>
-                <input type="password" id="password" placeholder="••••••••" required>
+                <label for="password">Senha (mínimo 8 caracteres)</label>
+                <input type="password" id="password" placeholder="••••••••" required minlength="8" maxlength="72" autocomplete="new-password">
             </div>
             <button type="submit" class="btn-submit">Registrar</button>
         </form>

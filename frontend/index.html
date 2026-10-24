@@ -2,11 +2,11 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>FinanceTracker — Controle Financeiro Inteligente</title>
     <!-- PWA Meta Tags & Icons -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#00ffcc">
+    <meta name="theme-color" content="#00f0ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FinanceTracker">
@@ -14,14 +14,15 @@
     <link rel="icon" type="image/svg+xml" href="/assets/icons/icon.svg">
     <!-- Chart.js para Linha do Tempo e Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="./assets/css/variables.css">
     <link rel="stylesheet" href="./assets/css/style.css">
 </head>
-<body>
-    <!-- Região A11y para Leitores de Tela -->
-    <div id="a11y-announcer" class="sr-only" aria-live="polite"></div>
+<body class="mobile-tabs-ready">
+    <!-- Região A11y para Leitores de Tela (WCAG 2.1 AA) -->
+    <div id="a11y-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <!-- Notificações Toast Flutuantes -->
-    <div id="toast-container" class="toast-container" aria-live="assertive"></div>
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
     <header class="navbar">
         <div class="logo">
@@ -36,7 +37,7 @@
                     </linearGradient>
                 </defs>
             </svg>
-            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.2</span></h1>
+            <h1>Finance<span>Tracker</span> <span class="badge-version">v3.0</span></h1>
         </div>
 
         <div class="navbar-actions">
@@ -70,7 +71,7 @@
                 <span id="theme-icon" aria-hidden="true">⚡</span> <span id="theme-label">Cyberpunk</span>
             </button>
 
-            <!-- Perfil do Usuário e Status -->
+            <!-- Perfil do Utilizador e Status -->
             <div class="user-profile">
                 <div class="user-info-chip">
                     <span class="user-status-dot" aria-hidden="true"></span>
@@ -83,9 +84,11 @@
     </header>
 
     <main class="dashboard-container">
-        
-        <!-- Cards de Resumo Principal (HUD) -->
-        <section id="summary-section" class="summary-cards">
+
+        <!-- =================================================================
+             ABA 1 (MOBILE): RESUMO (DASHBOARD & ALERTAS DE VENCIMENTO)
+             ================================================================= -->
+        <section id="summary-section" class="summary-cards mobile-tab-active" data-mobile-tab="resumo" aria-live="polite">
             <div class="card deposits">
                 <div class="card-header-flex">
                     <h3>DEPÓSITOS (ENTRADAS)</h3>
@@ -113,7 +116,7 @@
         </section>
 
         <!-- SEÇÃO DE ALERTAS DE VENCIMENTO & CONTAS A PAGAR/RECEBER -->
-        <section id="bills-section" class="bills-section card">
+        <section id="bills-section" class="bills-section card mobile-tab-active" data-mobile-tab="resumo">
             <div class="section-header-flex">
                 <div>
                     <h2>🔔 Alertas de Vencimento & Contas</h2>
@@ -126,13 +129,15 @@
                 <span id="pill-today" class="bill-pill today">🟡 0 Vencendo Hoje</span>
                 <span id="pill-upcoming" class="bill-pill upcoming">🔵 0 Próximas</span>
             </div>
-            <div id="bills-list" class="bills-grid">
+            <div id="bills-list" class="bills-grid" aria-live="polite">
                 <p class="empty-msg">Nenhuma conta com data de vencimento registrada.</p>
             </div>
         </section>
 
-        <!-- SEÇÃO DE EVOLUÇÃO PATRIMONIAL (LINHA DO TEMPO) -->
-        <section id="timeline-section" class="timeline-section card">
+        <!-- =================================================================
+             ABA 3 (MOBILE): GRÁFICOS, PREVISÃO, ORÇAMENTOS E METAS
+             ================================================================= -->
+        <section id="timeline-section" class="timeline-section card" data-mobile-tab="graficos">
             <div class="section-header-flex">
                 <div>
                     <h2>📈 Evolução Patrimonial (Linha do Tempo)</h2>
@@ -148,7 +153,7 @@
         </section>
 
         <!-- SEÇÃO DE PREVISÃO INTELIGENTE & SIMULADOR DE CENÁRIOS (30 DIAS) -->
-        <section class="forecast-section card">
+        <section class="forecast-section card" data-mobile-tab="graficos">
             <div class="forecast-header">
                 <div>
                     <h2>🔮 Previsão Inteligente & Projeção (30 Dias)</h2>
@@ -219,7 +224,7 @@
         </section>
 
         <!-- SEÇÃO DE ORÇAMENTOS POR CATEGORIA (BUDGET LIMITS) -->
-        <section class="budgets-section card">
+        <section class="budgets-section card" data-mobile-tab="graficos">
             <div class="section-header-flex">
                 <div>
                     <h2>🎯 Orçamentos Mensais por Categoria</h2>
@@ -233,7 +238,7 @@
         </section>
 
         <!-- SEÇÃO DE METAS FINANCEIRAS (SAVINGS GOALS) -->
-        <section class="goals-section card">
+        <section class="goals-section card" data-mobile-tab="graficos">
             <div class="section-header-flex">
                 <div>
                     <h2>🏆 Metas de Economia & Sonhos</h2>
@@ -246,15 +251,24 @@
             </div>
         </section>
 
-        <!-- Grid de Operações e Histórico -->
-        <div class="dashboard-grid">
-            
+        <!-- =================================================================
+             ABA 2 (MOBILE): TRANSAÇÕES, FORMULÁRIO E FILTROS
+             ================================================================= -->
+        <div class="dashboard-grid" data-mobile-tab="transacoes">
+
             <!-- Formulário de Nova Movimentação -->
             <section id="form-section" class="form-section card">
                 <div class="form-title-flex">
                     <h2>➕ Nova Movimentação</h2>
                     <span class="shortcut-tag" title="Atalho de teclado">[N]</span>
                 </div>
+
+                <!-- Banner de Status do Reconhecimento de Voz -->
+                <div id="voice-status-banner" class="voice-status-banner hidden" role="status" aria-live="polite">
+                    <span aria-hidden="true">🎙️</span>
+                    <span>Ouvindo... Diga algo como: <em>"Gastei 45 reais em almoço"</em></span>
+                </div>
+
                 <form id="transaction-form">
                     <div class="form-group">
                         <label for="type">Tipo de Operação</label>
@@ -300,7 +314,7 @@
                     </div>
 
                     <div class="form-group checkbox-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                        <input type="checkbox" id="is_paid" checked style="width: auto; cursor: pointer;">
+                        <input type="checkbox" id="is_paid" checked style="width: auto; min-height: auto; cursor: pointer;">
                         <label for="is_paid" style="margin: 0; cursor: pointer; font-size: 0.85rem;">Já foi liquidada / paga?</label>
                     </div>
 
@@ -326,22 +340,24 @@
                 <!-- Barra de Filtros e Busca -->
                 <div class="filters-bar">
                     <div class="search-input-wrapper">
-                        <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição... [F]" autocomplete="off">
+                        <label for="filter-search" class="sr-only">Buscar por descrição</label>
+                        <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição... [/]" autocomplete="off">
                     </div>
 
                     <div class="search-input-wrapper">
+                        <label for="filter-tag" class="sr-only">Filtrar por tag</label>
                         <input type="text" id="filter-tag" placeholder="🏷️ Filtrar por tag (#...)" autocomplete="off">
                     </div>
 
                     <div class="filter-controls">
+                        <label for="filter-type" class="sr-only">Filtrar por tipo</label>
                         <select id="filter-type">
                             <option value="">Todos os tipos</option>
                             <option value="income">Apenas Entradas</option>
                             <option value="expense">Apenas Saídas</option>
                         </select>
-                            <option value="expense">Apenas Saídas</option>
-                        </select>
 
+                        <label for="filter-category" class="sr-only">Filtrar por categoria</label>
                         <select id="filter-category">
                             <option value="">Todas as categorias</option>
                             <option value="Trabalho">Trabalho</option>
@@ -360,7 +376,7 @@
                 </div>
 
                 <!-- Lista de Transações -->
-                <div id="transactions-list" class="transactions-list">
+                <div id="transactions-list" class="transactions-list" aria-live="polite">
                     <p class="empty-msg">Nenhuma movimentação registrada ainda.</p>
                 </div>
 
@@ -374,8 +390,8 @@
 
         </div>
 
-        <!-- GRÁFICO DE COLUNAS ANALÍTICO REATIVO -->
-        <section class="chart-section card">
+        <!-- GRÁFICO DE COLUNAS ANALÍTICO REATIVO (ABA 3 NO MOBILE) -->
+        <section class="chart-section card" data-mobile-tab="graficos">
             <div class="chart-header-flex">
                 <div>
                     <h2>📊 Resumo Analítico por Categoria</h2>
@@ -393,22 +409,76 @@
             </div>
         </section>
 
-        <!-- Barra de Dicas e Atalhos de Teclado -->
+        <!-- =================================================================
+             ABA 4 (MOBILE): CONFIGURAÇÕES & PERFIL DO UTILIZADOR
+             ================================================================= -->
+        <section id="settings-section" class="card mobile-only-section" data-mobile-tab="config">
+            <h2>⚙️ Configurações & Perfil</h2>
+            <p class="section-tagline">Personalize a sua experiência no telemóvel e gerencie sua sessão.</p>
+
+            <div class="settings-grid-mobile">
+                <div class="settings-row-item">
+                    <div class="settings-row-info">
+                        <strong id="mobile-user-name">Utilizador</strong>
+                        <span id="mobile-user-email">Sessão autenticada via Cookie HttpOnly</span>
+                    </div>
+                    <button id="mobile-logout-btn" class="btn-logout">Sair</button>
+                </div>
+
+                <div class="settings-row-item">
+                    <div class="settings-row-info">
+                        <strong>👁️ Modo Privacidade</strong>
+                        <span>Oculta saldos e valores monetários com máscara</span>
+                    </div>
+                    <button id="mobile-privacy-btn" class="btn-secondary">Alternar</button>
+                </div>
+
+                <div class="settings-row-item">
+                    <div class="settings-row-info">
+                        <strong>🎨 Tema Visual</strong>
+                        <span>Alternar entre Cyberpunk Neon e Clean Dark</span>
+                    </div>
+                    <button id="mobile-theme-btn" class="btn-secondary">Alternar Tema</button>
+                </div>
+
+                <div class="settings-row-item">
+                    <div class="settings-row-info">
+                        <strong>💱 Moeda de Exibição</strong>
+                        <span>Formatação monetária do painel</span>
+                    </div>
+                    <select id="mobile-currency-select" class="select-chip" aria-label="Selecionar moeda no mobile">
+                        <option value="BRL">🇧🇷 BRL (R$)</option>
+                        <option value="USD">🇺🇸 USD ($)</option>
+                        <option value="EUR">🇪🇺 EUR (€)</option>
+                    </select>
+                </div>
+
+                <div class="settings-row-item">
+                    <div class="settings-row-info">
+                        <strong>🔔 Notificações Push</strong>
+                        <span>Alertas de contas a vencer no dispositivo</span>
+                    </div>
+                    <button id="mobile-push-btn" class="btn-secondary">Ativar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Barra de Dicas e Atalhos de Teclado (Desktop) -->
         <footer class="shortcuts-helper-bar">
             <span>⌨️ Atalhos de teclado:</span>
             <code>[N]</code> <span>Nova movimentação</span>
-            <code>[F]</code> <span>Focar busca</span>
+            <code>[/]</code> <span>Focar busca</span>
             <code>[ESC]</code> <span>Fechar modais</span>
         </footer>
 
     </main>
 
     <!-- Modal de Edição de Transação -->
-    <div id="edit-modal" class="modal-overlay hidden">
+    <div id="edit-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
         <div class="modal-content card">
             <div class="modal-header">
-                <h3>✏️ Editar Movimentação</h3>
-                <button id="btn-close-edit-modal" class="btn-close-modal">&times;</button>
+                <h3 id="edit-modal-title">✏️ Editar Movimentação</h3>
+                <button id="btn-close-edit-modal" class="btn-close-modal" aria-label="Fechar modal">&times;</button>
             </div>
             <form id="edit-transaction-form">
                 <input type="hidden" id="edit-id">
@@ -457,7 +527,7 @@
                 </div>
 
                 <div class="form-group checkbox-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                    <input type="checkbox" id="edit-is-paid" style="width: auto; cursor: pointer;">
+                    <input type="checkbox" id="edit-is-paid" style="width: auto; min-height: auto; cursor: pointer;">
                     <label for="edit-is-paid" style="margin: 0; cursor: pointer; font-size: 0.85rem;">Já foi liquidada / paga?</label>
                 </div>
 
@@ -475,11 +545,11 @@
     </div>
 
     <!-- Modal de Confirmação de Exclusão -->
-    <div id="confirm-modal" class="modal-overlay hidden">
+    <div id="confirm-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         <div class="modal-content card modal-confirm">
             <div class="modal-header">
-                <h3>⚠️ Confirmar Exclusão</h3>
-                <button id="btn-close-confirm-modal" class="btn-close-modal">&times;</button>
+                <h3 id="confirm-modal-title">⚠️ Confirmar Exclusão</h3>
+                <button id="btn-close-confirm-modal" class="btn-close-modal" aria-label="Fechar modal">&times;</button>
             </div>
             <p id="confirm-modal-text">Tem certeza de que deseja remover esta movimentação? Esta ação não pode ser desfeita.</p>
             <div class="modal-actions">
@@ -490,11 +560,11 @@
     </div>
 
     <!-- Modal para Configurar Orçamento de Categoria -->
-    <div id="budget-modal" class="modal-overlay hidden">
+    <div id="budget-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
         <div class="modal-content card">
             <div class="modal-header">
-                <h3>🎯 Configurar Teto Orçamentário</h3>
-                <button id="btn-close-budget-modal" class="btn-close-modal">&times;</button>
+                <h3 id="budget-modal-title">🎯 Configurar Teto Orçamentário</h3>
+                <button id="btn-close-budget-modal" class="btn-close-modal" aria-label="Fechar modal">&times;</button>
             </div>
             <form id="budget-form">
                 <div class="form-group">
@@ -523,11 +593,11 @@
     </div>
 
     <!-- Modal para Nova Meta de Economia -->
-    <div id="goal-modal" class="modal-overlay hidden">
+    <div id="goal-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
         <div class="modal-content card">
             <div class="modal-header">
-                <h3>🏆 Nova Meta Financeira</h3>
-                <button id="btn-close-goal-modal" class="btn-close-modal">&times;</button>
+                <h3 id="goal-modal-title">🏆 Nova Meta Financeira</h3>
+                <button id="btn-close-goal-modal" class="btn-close-modal" aria-label="Fechar modal">&times;</button>
             </div>
             <form id="goal-form">
                 <div class="form-group">
@@ -555,11 +625,11 @@
     </div>
 
     <!-- Modal de Aporte em Meta -->
-    <div id="deposit-goal-modal" class="modal-overlay hidden">
+    <div id="deposit-goal-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="deposit-goal-modal-title">
         <div class="modal-content card">
             <div class="modal-header">
-                <h3>💰 Aporte em Meta Financeira</h3>
-                <button id="btn-close-deposit-goal-modal" class="btn-close-modal">&times;</button>
+                <h3 id="deposit-goal-modal-title">💰 Aporte em Meta Financeira</h3>
+                <button id="btn-close-deposit-goal-modal" class="btn-close-modal" aria-label="Fechar modal">&times;</button>
             </div>
             <form id="deposit-goal-form">
                 <input type="hidden" id="deposit-goal-id">
@@ -576,29 +646,31 @@
         </div>
     </div>
 
-    <!-- Barra de Navegação Inferior Fixa para Mobile (Bottom Navigation) -->
-    <nav class="bottom-nav" aria-label="Navegação móvel inferior">
-        <button class="bottom-nav-item active" data-nav-target="summary-section" aria-label="Início e saldos">
+    <!-- Barra de Navegação Inferior Fixa para Mobile (4 Abas + Botão Central) -->
+    <nav class="bottom-nav" aria-label="Navegação móvel por abas">
+        <button class="bottom-nav-item active" data-tab-target="resumo" aria-label="Aba Resumo e Alertas">
             <span class="nav-icon" aria-hidden="true">📊</span>
-            <span>Início</span>
+            <span>Resumo</span>
         </button>
-        <button class="bottom-nav-item" data-nav-target="bills-section" aria-label="Contas a vencer e alertas">
-            <span class="nav-icon" aria-hidden="true">🔔</span>
-            <span>Alertas</span>
+        <button class="bottom-nav-item" data-tab-target="transacoes" aria-label="Aba Transações e Filtros">
+            <span class="nav-icon" aria-hidden="true">💳</span>
+            <span>Transações</span>
         </button>
         <button class="bottom-nav-item btn-nav-primary" id="btn-mobile-new-tx" aria-label="Adicionar nova movimentação">
             <span class="nav-icon" aria-hidden="true">➕</span>
         </button>
-        <button class="bottom-nav-item" data-nav-target="timeline-section" aria-label="Gráfico de evolução patrimonial">
+        <button class="bottom-nav-item" data-tab-target="graficos" aria-label="Aba Gráficos e Análises">
             <span class="nav-icon" aria-hidden="true">📈</span>
-            <span>Evolução</span>
+            <span>Gráficos</span>
         </button>
-        <button class="bottom-nav-item" data-nav-target="history-section" aria-label="Histórico de transações">
-            <span class="nav-icon" aria-hidden="true">📜</span>
-            <span>Histórico</span>
+        <button class="bottom-nav-item" data-tab-target="config" aria-label="Aba Configurações e Perfil">
+            <span class="nav-icon" aria-hidden="true">⚙️</span>
+            <span>Config</span>
         </button>
     </nav>
 
+    <script src="./assets/js/a11y.js"></script>
+    <script src="./assets/js/voice.js"></script>
     <script src="./assets/js/app.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,44 +10,47 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from main import app
-from database import get_db_cursor
-from models import init_db
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_db():
-    init_db()
-    yield
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def client():
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
-@pytest.fixture
+
+@pytest.fixture(scope="session")
 def auth_headers(client):
     """
-    Cria ou reutiliza um utilizador de testes e retorna os headers de autenticação Bearer.
+    Cria ou reutiliza um utilizador de testes e retorna os headers Bearer + cookies HttpOnly.
     """
     test_email = "tester_ci@example.com"
     test_password = "password123"
 
-    # Tenta registrar
-    client.post("/api/register", json={
-        "name": "Tester CI",
-        "email": test_email,
-        "password": test_password
-    })
+    # Tenta registar (ignora se já existir)
+    client.post(
+        "/api/register",
+        json={
+            "name": "Tester CI",
+            "email": test_email,
+            "password": test_password,
+        },
+    )
 
     # Faz login
-    login_res = client.post("/api/login", json={
-        "email": test_email,
-        "password": test_password
-    })
+    login_res = client.post(
+        "/api/login",
+        json={
+            "email": test_email,
+            "password": test_password,
+        },
+    )
+    assert login_res.status_code == 200
     data = login_res.json()
-    token = data["access_token"]
+    token = login_res.cookies.get("access_token")
     user_id = data["user"]["id"]
 
     return {
         "headers": {"Authorization": f"Bearer {token}"},
         "user_id": user_id,
-        "email": test_email
+        "email": test_email,
     }

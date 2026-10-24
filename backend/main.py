@@ -1,85 +1,64 @@
-import os
+"""
+Ponto de entrada da API FastAPI — FinanceTracker v3.0 (Clean Architecture & Serverless Ready).
+"""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 
-from database import get_db_cursor
-from models import init_db
-from routers import auth, transactions, budgets, goals, cron
+from app.core.config import settings
+from app.core.security import limiter
+from app.db.session import ensure_schema, get_engine
+from app.routers import auth, budgets, cron, goals, transactions
 
-def get_real_client_ip(request: Request) -> str:
-    """Extrai o IP real do cliente mesmo atrás de proxies ou CDNs da Vercel."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "127.0.0.1"
-
-# Rate Limiter contra ataques de força bruta e abusos
-limiter = Limiter(key_func=get_real_client_ip, default_limits=["200/minute"])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Executado no arranque do servidor FastAPI para garantir o DDL e índices relacionais.
-    """
+    """Inicializa o esquema relacional e migrações idempotentes no arranque."""
     try:
-        init_db()
-        print("Banco de dados pronto para receber conexões Serverless.")
-    except Exception as e:
-        print(f"Alerta: Falha ao inicializar o banco de dados no arranque: {e}")
+        await ensure_schema()
+    except Exception as exc:
+        print(f"Alerta: Falha ao inicializar o banco de dados no arranque: {exc}")
     yield
+
 
 app = FastAPI(
     title="FinanceTracker API",
-    description="API RESTful de controle financeiro pessoal avançado desenvolvida com FastAPI, Pydantic e PostgreSQL.",
-    version="2.1.0",
-    lifespan=lifespan
+    description=(
+        "API RESTful de controle financeiro pessoal avançado com FastAPI, "
+        "SQLAlchemy 2.0 Assíncrono, Pydantic V2, Cookies HttpOnly e PostgreSQL."
+    ),
+    version=settings.app_version,
+    lifespan=lifespan,
 )
 
-# Configuração do SlowAPI Rate Limiter
+# Rate Limiter contra ataques de força bruta e abusos
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configuração de CORS dinâmica e rígida
-allowed_origins = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://localhost:5501",
-    "http://127.0.0.1:5501",
-]
-
-vercel_url = os.getenv("VERCEL_URL")
-if vercel_url:
-    allowed_origins.append(f"https://{vercel_url}")
-
-custom_origin = os.getenv("FRONTEND_URL")
-if custom_origin:
-    allowed_origins.append(custom_origin)
-
+# Política de CORS restrita (localhost em dev + domínios Vercel autorizados)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
 )
+
 
 @app.get("/", tags=["Health Check"])
 @app.get("/api", tags=["Health Check"])
 @app.get("/api/health", tags=["Health Check"])
-def read_root():
+async def health_check():
     db_status = "offline"
     try:
-        with get_db_cursor(commit=False) as cursor:
-            cursor.execute("SELECT 1;")
-            if cursor.fetchone():
+        await ensure_schema()
+        async with get_engine().connect() as conn:
+            result = await conn.scalar(text("SELECT 1"))
+            if result == 1:
                 db_status = "connected"
     except Exception:
         db_status = "error"
@@ -87,9 +66,10 @@ def read_root():
     return {
         "status": "online",
         "system": "FinanceTracker API",
-        "version": "2.2.0",
-        "database": db_status
+        "version": settings.app_version,
+        "database": db_status,
     }
+
 
 # Registo dos Routers Modulares
 app.include_router(auth.router)

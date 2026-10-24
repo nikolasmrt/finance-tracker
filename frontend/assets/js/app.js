@@ -41,8 +41,9 @@ let state = {
 
 // --- Formatação de Moeda Multi-Moeda (com suporte a Modo Privacidade) ---
 function formatCurrency(val) {
+    const symbolMap = { BRL: "R$", USD: "$", EUR: "€" };
     if (state.privacyMode) {
-        return "••••••";
+        return `${symbolMap[state.currency] || "R$"} ••••••`;
     }
     const num = Number(val) || 0;
     const map = {
@@ -52,6 +53,15 @@ function formatCurrency(val) {
     };
     const cfg = map[state.currency] || map.BRL;
     return num.toLocaleString(cfg.locale, { style: "currency", currency: cfg.currency });
+}
+
+function parseTagsInput(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    return String(raw)
+        .split(/[\s,]+/)
+        .map(t => t.replace(/^#+/, "").trim().toLowerCase())
+        .filter(Boolean);
 }
 
 // Headers padrão com credenciais seguras
@@ -145,7 +155,16 @@ async function validarSessao() {
 function atualizarPerfilHeader() {
     const userDisplay = document.getElementById("user-display");
     const demoBadge = document.getElementById("demo-badge-indicator");
+    const mobileUserName = document.getElementById("mobile-user-name");
+    const mobileUserEmail = document.getElementById("mobile-user-email");
+
     if (userDisplay) userDisplay.innerText = state.userName;
+    if (mobileUserName) mobileUserName.innerText = state.userName;
+    if (mobileUserEmail) {
+        mobileUserEmail.innerText = state.isDemo
+            ? "Sessão Temporária (Modo Convidado)"
+            : (state.userEmail || "Sessão autenticada via Cookie HttpOnly");
+    }
 
     if (demoBadge) {
         if (state.isDemo) {
@@ -571,10 +590,12 @@ function renderizarListaTransacoes(transactions) {
     transactions.forEach(tx => {
         const isIncome = tx.type === "income";
 
-        // Tags / Etiquetas
+        // Tags / Etiquetas (suporta list[str] ou string)
         let tagsHtml = "";
-        if (tx.tags && tx.tags.trim()) {
-            const rawTags = tx.tags.split(/[\s,]+/).filter(t => t.length > 0);
+        const rawTags = Array.isArray(tx.tags)
+            ? tx.tags
+            : (typeof tx.tags === "string" && tx.tags.trim() ? tx.tags.split(/[\s,]+/).filter(t => t.length > 0) : []);
+        if (rawTags.length > 0) {
             tagsHtml = `<div class="tags-container">${rawTags.map(t => {
                 const cleanTag = t.startsWith("#") ? t : `#${t}`;
                 return `<button type="button" class="tag-badge" onclick="filtrarPorTag('${escapeHtml(cleanTag)}')" title="Filtrar por ${cleanTag}">${escapeHtml(cleanTag)}</button>`;
@@ -855,12 +876,11 @@ function configurarFormularioTransacao() {
         submitBtn.innerText = "Registrando...";
 
         const payload = {
-            user_id: state.userId,
             type: document.getElementById("type").value,
             amount: parseFloat(document.getElementById("amount").value),
             description: document.getElementById("description").value,
             category: document.getElementById("category").value,
-            tags: document.getElementById("tags") ? document.getElementById("tags").value.trim() : "",
+            tags: parseTagsInput(document.getElementById("tags") ? document.getElementById("tags").value : ""),
             due_date: document.getElementById("due_date") && document.getElementById("due_date").value ? document.getElementById("due_date").value : null,
             is_paid: document.getElementById("is_paid") ? document.getElementById("is_paid").checked : true,
             transaction_date: document.getElementById("transaction_date").value || new Date().toISOString().split("T")[0]
@@ -973,7 +993,7 @@ function configurarModais() {
             amount: parseFloat(document.getElementById("edit-amount").value),
             description: document.getElementById("edit-description").value,
             category: document.getElementById("edit-category").value,
-            tags: document.getElementById("edit-tags") ? document.getElementById("edit-tags").value.trim() : "",
+            tags: parseTagsInput(document.getElementById("edit-tags") ? document.getElementById("edit-tags").value : ""),
             due_date: document.getElementById("edit-due-date") && document.getElementById("edit-due-date").value ? document.getElementById("edit-due-date").value : null,
             is_paid: document.getElementById("edit-is-paid") ? document.getElementById("edit-is-paid").checked : true,
             transaction_date: document.getElementById("edit-date").value
@@ -1114,7 +1134,11 @@ window.abrirModalEdicao = function(id) {
     document.getElementById("edit-date").value = tx.transaction_date;
     
     const editTags = document.getElementById("edit-tags");
-    if (editTags) editTags.value = tx.tags || "";
+    if (editTags) {
+        editTags.value = Array.isArray(tx.tags)
+            ? tx.tags.map(t => (t.startsWith("#") ? t : `#${t}`)).join(" ")
+            : (tx.tags || "");
+    }
 
     const editDueDate = document.getElementById("edit-due-date");
     if (editDueDate) editDueDate.value = tx.due_date || "";
@@ -1586,19 +1610,42 @@ function renderGraficoLinhaTempo(points) {
 }
 
 // ==========================================================================
-// MOBILE BOTTOM NAVIGATION
+// MOBILE BOTTOM NAVIGATION (SISTEMA DE 4 ABAS DINÂMICAS)
 // ==========================================================================
 
+function ativarAbaMobile(tabName) {
+    const sections = document.querySelectorAll("[data-mobile-tab]");
+    sections.forEach(sec => {
+        if (sec.getAttribute("data-mobile-tab") === tabName) {
+            sec.classList.add("mobile-tab-active");
+        } else {
+            sec.classList.remove("mobile-tab-active");
+        }
+    });
+
+    const navItems = document.querySelectorAll(".bottom-nav-item[data-tab-target]");
+    navItems.forEach(btn => {
+        if (btn.getAttribute("data-tab-target") === tabName) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+
+    if (tabName === "graficos" && state.timelineChartInstance) {
+        setTimeout(() => state.timelineChartInstance.resize(), 60);
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function configurarNavegacaoMobile() {
-    const navItems = document.querySelectorAll(".bottom-nav-item[data-nav-target]");
+    const navItems = document.querySelectorAll(".bottom-nav-item[data-tab-target]");
     navItems.forEach(item => {
         item.addEventListener("click", () => {
-            navItems.forEach(n => n.classList.remove("active"));
-            item.classList.add("active");
-            const targetId = item.getAttribute("data-nav-target");
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+            const targetTab = item.getAttribute("data-tab-target");
+            if (targetTab) {
+                ativarAbaMobile(targetTab);
             }
         });
     });
@@ -1606,7 +1653,34 @@ function configurarNavegacaoMobile() {
     const btnNewMobile = document.getElementById("btn-mobile-new-tx");
     if (btnNewMobile) {
         btnNewMobile.addEventListener("click", () => {
-            window.focarFormulario();
+            ativarAbaMobile("transacoes");
+            setTimeout(() => window.focarFormulario(), 100);
+        });
+    }
+
+    // Controles da Aba 4 (Configurações Mobile)
+    document.getElementById("mobile-logout-btn")?.addEventListener("click", () => {
+        document.getElementById("logout-btn")?.click();
+    });
+    document.getElementById("mobile-privacy-btn")?.addEventListener("click", () => {
+        document.getElementById("btn-privacy-toggle")?.click();
+    });
+    document.getElementById("mobile-theme-btn")?.addEventListener("click", () => {
+        document.getElementById("theme-toggle-btn")?.click();
+    });
+    document.getElementById("mobile-push-btn")?.addEventListener("click", () => {
+        document.getElementById("btn-push-toggle")?.click();
+    });
+
+    const mobileCurrency = document.getElementById("mobile-currency-select");
+    if (mobileCurrency) {
+        mobileCurrency.value = state.currency;
+        mobileCurrency.addEventListener("change", (e) => {
+            const mainSelect = document.getElementById("currency-select");
+            if (mainSelect) {
+                mainSelect.value = e.target.value;
+                mainSelect.dispatchEvent(new Event("change"));
+            }
         });
     }
 }

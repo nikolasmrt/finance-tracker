@@ -1,12 +1,13 @@
 # 📊 FinanceTracker — Sistema de Controlo Financeiro Pessoal
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Versão-2.1.0-cyan?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Versão-3.0.0-cyan?style=for-the-badge">
   <img src="https://img.shields.io/badge/Vercel-Serverless%20Ready-black?style=for-the-badge&logo=vercel">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-teal?style=for-the-badge&logo=fastapi">
+  <img src="https://img.shields.io/badge/SQLAlchemy%202.0-Async%20%2B%20asyncpg-red?style=for-the-badge">
   <img src="https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-blue?style=for-the-badge&logo=postgresql">
-  <img src="https://img.shields.io/badge/Pytest-Passing%20(10/10)-success?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Pytest-Passing%20(11/11)-success?style=for-the-badge">
   <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge">
 </p>
 
@@ -68,36 +69,58 @@ graph TD
 
 ---
 
-## 📂 Estrutura do Projeto
+## 📂 Estrutura do Projeto (Monorepo Limpo v3.0)
 
-```
+```text
 finance-tracker/
+├── .well-known/
+│   └── assetlinks.json            # Validação Digital Asset Links para App Android NATIVO (TWA)
 ├── api/
-│   └── index.py                 # Entrypoint serverless para Vercel
+│   └── index.py                   # Entrypoint Serverless na Vercel
 ├── backend/
-│   ├── routers/
-│   │   ├── auth.py              # Login, registro, /me, /demo e cookies HTTP-Only
-│   │   ├── transactions.py      # CRUD, paginação, resumo agregado e export
-│   │   ├── budgets.py           # Tetos mensais por categoria
-│   │   ├── goals.py             # Metas financeiras e aportes
-│   │   └── cron.py              # Rotina de limpeza agendada
-│   ├── tests/
-│   │   ├── conftest.py          # Fixtures do pytest
-│   │   ├── test_auth.py         # Testes de autenticação e modo demo
-│   │   ├── test_transactions.py # Testes de transações e paginação
-│   │   └── test_features.py     # Testes de orçamentos, metas e cron
-│   ├── database.py              # Gerenciador de conexões otimizado para Serverless
-│   ├── models.py                # DDL relacional (users, transactions, budgets, goals)
-│   ├── schemas.py               # Contratos e validações Pydantic V2
-│   ├── main.py                  # Inicialização do FastAPI com rate limiting e CORS
-│   └── requirements.txt         # Dependências do backend
+│   ├── app/
+│   │   ├── core/
+│   │   │   ├── config.py          # Variáveis de ambiente imutáveis e CORS restrito
+│   │   │   ├── security.py        # Bcrypt em threadpool, JWT, Cookies HttpOnly e Rate Limiting
+│   │   │   ├── sanitize.py        # Sanitização XSS, tags e escape de LIKE
+│   │   │   ├── finance.py         # Regras puras (forecast 30d, timeline, bills, budgets)
+│   │   │   └── demo.py            # Criação e expurgo de sessões Modo Convidado
+│   │   ├── db/
+│   │   │   └── session.py         # Conexão assíncrona Serverless (SQLAlchemy 2.0 + asyncpg + NullPool)
+│   │   ├── models/
+│   │   │   └── models.py          # SQLAlchemy ORM & DDL com tags (TEXT[]), due_date e alerts
+│   │   ├── schemas/
+│   │   │   └── schemas.py         # Schemas estritos Pydantic V2
+│   │   └── routers/
+│   │       ├── _common.py         # Helper DRY de propriedade (get_owned_or_404)
+│   │       ├── auth.py            # Login, Registro, Logout (Cookie HttpOnly) e Demo Guest
+│   │       ├── transactions.py    # CRUD, Filtros, Paginação, Tags, Timeline, Bills e Summary
+│   │       ├── budgets.py         # Orçamentos mensais por categoria
+│   │       ├── goals.py           # Metas financeiras e aportes
+│   │       └── cron.py            # Limpeza automática de perfis demo
+│   ├── tests/                     # Suíte de testes automatizados Pytest (11/11)
+│   ├── main.py                    # App FastAPI com Lifespan, CORS e Rate Limit
+│   ├── requirements.txt
+│   └── vercel.json                # Configuração para Deploy Serverless na Vercel
 ├── frontend/
 │   ├── assets/
 │   │   ├── css/
-│   │   │   └── style.css        # Design System (Cyberpunk Neon + Clean Minimal)
+│   │   │   ├── variables.css      # Tokens de design, cores, temas e safe-area mobile
+│   │   │   └── style.css          # Style responsivo, a11y, mobile-first (4 abas) e glassmorphism
 │   │   └── js/
-│   │       ├── app.js           # Lógica do painel, filtros, metas, orçamentos, simulação
-│   │       └── auth.js          # Fluxo de login, registro e botão Demo 1-Click
+│   │       ├── a11y.js            # Focus Trap, leitores de tela e atalhos de teclado (N, ESC, /)
+│   │       ├── auth.js            # Gestão de sessão por Cookie e Modo Demo Convidado
+│   │       ├── voice.js           # Web Speech API (Entrada rápida por voz)
+│   │       └── app.js             # Dashboard, Abas Mobile, Gráficos, Tags, Modo Privacidade e Modais
+│   ├── manifest.json              # Configuração PWA (standalone)
+│   ├── sw.js                      # Service Worker (Cache offline & Push Notifications)
+│   ├── index.html                 # Dashboard Acessível + PWA + Abas Dinâmicas Mobile
+│   ├── login.html                 # Tela de Acesso com botão "Testar Modo Convidado"
+│   └── register.html              # Tela de Registo de Conta
+├── docs/
+│   └── ANDROID_BUILD.md           # Guia passo a passo para gerar o .APK via Bubblewrap/TWA
+└── README.md
+```
 │   ├── index.html               # Dashboard completo
 │   ├── login.html               # Tela de acesso com botão Modo Convidado
 │   └── register.html            # Tela de criação de conta

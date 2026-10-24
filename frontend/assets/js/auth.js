@@ -1,7 +1,13 @@
-// URL dinâmica para a API: usa /api em produção (Vercel) e http://127.0.0.1:8000/api localmente
-const API_URL = (window.location.protocol === "file:" || window.location.port === "5500" || window.location.port === "5501")
-    ? "http://127.0.0.1:8000/api"
-    : "/api";
+/**
+ * GESTÃO DE SESSÃO POR COOKIE HTTP-ONLY & MODO CONVIDADO 1-CLICK — FINANCETRACKER 3.0
+ * O token JWT trafega exclusivamente em Cookie HttpOnly/SameSite=Lax (protegido contra XSS).
+ */
+const API_URL =
+    window.location.protocol === "file:" ||
+    window.location.port === "5500" ||
+    window.location.port === "5501"
+        ? "http://127.0.0.1:8000/api"
+        : "/api";
 
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("login-form");
@@ -35,23 +41,41 @@ function showAuthToast(message, type = "info") {
         container = document.createElement("div");
         container.id = "toast-container";
         container.className = "toast-container";
+        container.setAttribute("role", "status");
+        container.setAttribute("aria-live", "polite");
         document.body.appendChild(container);
     }
 
     const toast = document.createElement("div");
     toast.className = `cyber-toast toast-${type}`;
-    const icon = type === "success" ? "✓" : (type === "error" ? "✕" : (type === "warning" ? "⚠" : "ℹ"));
+    const icon =
+        type === "success" ? "✓" : type === "error" ? "✕" : type === "warning" ? "⚠" : "ℹ";
 
-    toast.innerHTML = `
-        <span class="toast-icon">${icon}</span>
-        <span class="toast-text">${message}</span>
-    `;
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "toast-icon";
+    iconSpan.textContent = icon;
 
+    const textSpan = document.createElement("span");
+    textSpan.className = "toast-text";
+    textSpan.textContent = message;
+
+    toast.appendChild(iconSpan);
+    toast.appendChild(textSpan);
     container.appendChild(toast);
+
     setTimeout(() => {
         toast.classList.add("fade-out");
         setTimeout(() => toast.remove(), 400);
     }, 3500);
+}
+
+function saveUserSessionMeta(user) {
+    // Nunca gravamos o token JWT no localStorage (ele reside apenas no Cookie HttpOnly).
+    localStorage.removeItem("accessToken");
+    localStorage.setItem("userId", String(user.id));
+    localStorage.setItem("userName", user.name);
+    localStorage.setItem("userEmail", user.email);
+    localStorage.setItem("isDemo", user.is_demo ? "true" : "false");
 }
 
 async function iniciarModoDemo() {
@@ -66,29 +90,20 @@ async function iniciarModoDemo() {
         const response = await fetch(`${API_URL}/demo`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include" // Permite gravação segura do cookie HTTP-Only
+            credentials: "include",
         });
 
         const data = await response.json();
-
         if (!response.ok) {
             throw new Error(data.detail || "Erro ao iniciar o Modo Convidado.");
         }
 
-        // Armazena identificadores de sessão no storage
-        localStorage.setItem("userId", data.user.id);
-        localStorage.setItem("userName", data.user.name);
-        localStorage.setItem("userEmail", data.user.email);
-        localStorage.setItem("isDemo", "true");
-        if (data.access_token) {
-            localStorage.setItem("accessToken", data.access_token);
-        }
-
+        saveUserSessionMeta(data.user);
         showAuthToast("✨ Modo Convidado ativado! Redirecionando para o Dashboard...", "success");
 
         setTimeout(() => {
             window.location.href = "index.html";
-        }, 600);
+        }, 500);
     } catch (error) {
         console.error("Falha no modo demo:", error);
         showAuthToast(error.message, "error");
@@ -114,30 +129,21 @@ async function realizarLogin() {
         const response = await fetch(`${API_URL}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include", // Envia e armazena cookies HTTP-Only
-            body: JSON.stringify({ email, password })
+            credentials: "include",
+            body: JSON.stringify({ email, password }),
         });
 
         const data = await response.json();
-
         if (!response.ok) {
             throw new Error(data.detail || "Erro ao efetuar login. Verifique as credenciais.");
         }
 
-        // Armazena dados de sessão
-        if (data.access_token) {
-            localStorage.setItem("accessToken", data.access_token);
-        }
-        localStorage.setItem("userId", data.user.id);
-        localStorage.setItem("userName", data.user.name);
-        localStorage.setItem("userEmail", data.user.email);
-        localStorage.setItem("isDemo", data.user.is_demo ? "true" : "false");
-
+        saveUserSessionMeta(data.user);
         showAuthToast("Login efetuado com sucesso! Redirecionando...", "success");
 
         setTimeout(() => {
             window.location.href = "index.html";
-        }, 600);
+        }, 500);
     } catch (error) {
         showAuthToast(error.message, "error");
     } finally {
@@ -160,8 +166,8 @@ async function realizarRegisto() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    if (password.length < 6) {
-        showAuthToast("A senha deve ter no mínimo 6 caracteres.", "warning");
+    if (password.length < 8) {
+        showAuthToast("A senha deve ter no mínimo 8 caracteres.", "warning");
         if (btnSubmit) {
             btnSubmit.disabled = false;
             btnSubmit.innerText = originalText;
@@ -174,19 +180,19 @@ async function realizarRegisto() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password }),
         });
 
         const data = await response.json();
-
         if (!response.ok) {
             throw new Error(data.detail || "Erro ao criar conta.");
         }
 
-        showAuthToast("Conta criada com sucesso! Faça login para aceder.", "success");
+        saveUserSessionMeta(data.user);
+        showAuthToast("Conta criada com sucesso! Redirecionando para o Dashboard...", "success");
         setTimeout(() => {
-            window.location.href = "login.html";
-        }, 1000);
+            window.location.href = "index.html";
+        }, 700);
     } catch (error) {
         showAuthToast(error.message, "error");
     } finally {
