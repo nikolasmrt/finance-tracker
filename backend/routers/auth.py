@@ -190,24 +190,28 @@ def create_demo_session(request: Request, response: Response):
         demo_user = cursor.fetchone()
         user_id = demo_user["id"]
 
-        # Popula transações realistas
+        # Popula transações realistas com tags, datas de vencimento e status de liquidação
         demo_transactions = [
-            (user_id, "income", 6500.00, "Salário Tech Lead", "Trabalho", today - timedelta(days=6)),
-            (user_id, "income", 1200.00, "Freelance API FastAPI", "Trabalho", today - timedelta(days=2)),
-            (user_id, "income", 450.00, "Dividendos FIIs & Ações", "Investimentos", today - timedelta(days=4)),
-            (user_id, "expense", 1950.00, "Aluguel & Condomínio", "Moradia", today - timedelta(days=5)),
-            (user_id, "expense", 680.50, "Supermercado Mensal", "Alimentação", today - timedelta(days=4)),
-            (user_id, "expense", 240.00, "Combustível / Uber", "Transporte", today - timedelta(days=3)),
-            (user_id, "expense", 189.90, "Assinatura Cloud & Cursos", "Estudo", today - timedelta(days=5)),
-            (user_id, "expense", 210.00, "Jantar Cyberpunk Lounge", "Lazer", today - timedelta(days=2)),
-            (user_id, "expense", 160.00, "Farmácia e Vitaminas", "Saúde", today - timedelta(days=1)),
+            (user_id, "income", 6500.00, "Salário Tech Lead", "Trabalho", today - timedelta(days=6), "#salario #tech", None, True),
+            (user_id, "income", 1200.00, "Freelance API FastAPI", "Trabalho", today - timedelta(days=2), "#freela #dev", None, True),
+            (user_id, "income", 450.00, "Dividendos FIIs & Ações", "Investimentos", today - timedelta(days=4), "#dividendos #passivo", None, True),
+            (user_id, "expense", 1950.00, "Aluguel & Condomínio", "Moradia", today - timedelta(days=5), "#fixo #casa", today - timedelta(days=5), True),
+            (user_id, "expense", 680.50, "Supermercado Mensal", "Alimentação", today - timedelta(days=4), "#mercado #essencial", today - timedelta(days=4), True),
+            (user_id, "expense", 240.00, "Combustível / Uber", "Transporte", today - timedelta(days=3), "#carro", today - timedelta(days=3), True),
+            (user_id, "expense", 189.90, "Assinatura Cloud & Cursos", "Estudo", today - timedelta(days=5), "#cloud #carreira", today - timedelta(days=5), True),
+            (user_id, "expense", 210.00, "Jantar Cyberpunk Lounge", "Lazer", today - timedelta(days=2), "#restaurante #fimdesemana", today - timedelta(days=2), True),
+            (user_id, "expense", 160.00, "Farmácia e Vitaminas", "Saúde", today - timedelta(days=1), "#saude", today - timedelta(days=1), True),
+            # Contas com alerta de vencimento:
+            (user_id, "expense", 129.90, "Fatura Internet Fibra 1Gbps", "Moradia", today, "#internet #fixo", today, False),
+            (user_id, "expense", 350.00, "Plano de Saúde Unimed", "Saúde", today, "#convenio", today + timedelta(days=3), False),
+            (user_id, "expense", 79.90, "Assinatura Streaming & Música", "Lazer", today - timedelta(days=1), "#streaming", today - timedelta(days=1), False),
         ]
 
         for tx in demo_transactions:
             cursor.execute(
                 """
-                INSERT INTO transactions (user_id, type, amount, description, category, transaction_date)
-                VALUES (%s, %s, %s, %s, %s, %s);
+                INSERT INTO transactions (user_id, type, amount, description, category, transaction_date, tags, due_date, is_paid)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """,
                 tx
             )

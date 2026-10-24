@@ -11,6 +11,7 @@ let state = {
     isDemo: localStorage.getItem("isDemo") === "true",
     currency: localStorage.getItem("preferredCurrency") || "BRL",
     theme: localStorage.getItem("theme") || "cyberpunk",
+    privacyMode: localStorage.getItem("privacy_mode") === "true",
     
     // Transações & Paginação
     transactions: [],
@@ -22,20 +23,27 @@ let state = {
     },
     filters: {
         search: "",
+        tag: "",
         type: "",
         category: ""
     },
 
-    // Resumos, Orçamentos e Metas
+    // Resumos, Orçamentos, Metas, Contas e Linha do Tempo
     summary: null,
     budgets: [],
     goals: [],
+    bills: [],
+    timelineData: null,
+    timelineChartInstance: null,
     chartMode: "all",
     pendingDeleteTxId: null
 };
 
-// --- Formatação de Moeda Multi-Moeda ---
+// --- Formatação de Moeda Multi-Moeda (com suporte a Modo Privacidade) ---
 function formatCurrency(val) {
+    if (state.privacyMode) {
+        return "••••••";
+    }
     const num = Number(val) || 0;
     const map = {
         BRL: { locale: "pt-BR", currency: "BRL" },
@@ -90,6 +98,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurarLogout();
     configurarTema();
     configurarMoeda();
+    configurarModoPrivacidade();
+    configurarComandosVoz();
+    configurarNotificacoesPush();
+    configurarNavegacaoMobile();
+    configurarFocusTrapModais();
     configurarAtalhosTeclado();
     configurarFormularioTransacao();
     configurarFiltrosEPaginacao();
@@ -97,6 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurarSimuladorCenarios();
     configurarModais();
     configurarAbasGrafico();
+    inicializarPWA();
 
     // Carrega dados completos
     await carregarTodosOsDados();
@@ -278,7 +292,9 @@ async function carregarTodosOsDados() {
         buscarTransacoes(),
         buscarResumoEPrevisao(),
         carregarOrcamentos(),
-        carregarMetas()
+        carregarMetas(),
+        carregarContasAlertas(),
+        carregarEvolucaoPatrimonial()
     ]);
 }
 
@@ -291,6 +307,7 @@ async function buscarTransacoes() {
         if (state.filters.type) q.append("type", state.filters.type);
         if (state.filters.category) q.append("category", state.filters.category);
         if (state.filters.search) q.append("search", state.filters.search);
+        if (state.filters.tag) q.append("tag", state.filters.tag);
 
         const res = await fetch(`${API_URL}/transactions/${state.userId}?${q.toString()}`, getFetchOptions("GET"));
         if (!res.ok) throw new Error("Erro ao buscar transações");
@@ -322,6 +339,7 @@ function renderizarBarraPaginacao() {
 
 function configurarFiltrosEPaginacao() {
     const inputSearch = document.getElementById("filter-search");
+    const inputTag = document.getElementById("filter-tag");
     const selectType = document.getElementById("filter-type");
     const selectCategory = document.getElementById("filter-category");
     const btnClear = document.getElementById("btn-clear-filters");
@@ -335,6 +353,17 @@ function configurarFiltrosEPaginacao() {
             debounceTimer = setTimeout(() => {
                 state.filters.search = e.target.value.trim();
                 state.pagination.page = 1; // Reseta para primeira página
+                buscarTransacoes();
+            }, 250);
+        });
+    }
+
+    if (inputTag) {
+        inputTag.addEventListener("input", (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                state.filters.tag = e.target.value.trim();
+                state.pagination.page = 1;
                 buscarTransacoes();
             }, 250);
         });
@@ -358,8 +387,9 @@ function configurarFiltrosEPaginacao() {
 
     if (btnClear) {
         btnClear.addEventListener("click", () => {
-            state.filters = { search: "", type: "", category: "" };
+            state.filters = { search: "", tag: "", type: "", category: "" };
             if (inputSearch) inputSearch.value = "";
+            if (inputTag) inputTag.value = "";
             if (selectType) selectType.value = "";
             if (selectCategory) selectCategory.value = "";
             state.pagination.page = 1;
@@ -540,6 +570,24 @@ function renderizarListaTransacoes(transactions) {
     let html = "";
     transactions.forEach(tx => {
         const isIncome = tx.type === "income";
+
+        // Tags / Etiquetas
+        let tagsHtml = "";
+        if (tx.tags && tx.tags.trim()) {
+            const rawTags = tx.tags.split(/[\s,]+/).filter(t => t.length > 0);
+            tagsHtml = `<div class="tags-container">${rawTags.map(t => {
+                const cleanTag = t.startsWith("#") ? t : `#${t}`;
+                return `<button type="button" class="tag-badge" onclick="filtrarPorTag('${escapeHtml(cleanTag)}')" title="Filtrar por ${cleanTag}">${escapeHtml(cleanTag)}</button>`;
+            }).join("")}</div>`;
+        }
+
+        // Data de Vencimento e Liquidação
+        let billStatusHtml = "";
+        if (tx.due_date) {
+            const isPaid = tx.is_paid !== false;
+            billStatusHtml = `<span>•</span> <span class="bill-badge ${isPaid ? 'paid' : 'upcoming'}">Venc: ${tx.due_date} (${isPaid ? 'Liquidada' : 'Pendente'})</span>`;
+        }
+
         html += `
             <div class="transaction-item ${tx.type}" data-id="${tx.id}">
                 <div class="tx-badge-type">${isIncome ? "ENTRADA" : "SAÍDA"}</div>
@@ -549,15 +597,17 @@ function renderizarListaTransacoes(transactions) {
                         <span class="category-tag">${escapeHtml(tx.category)}</span>
                         <span>•</span>
                         <span>📅 ${tx.transaction_date}</span>
+                        ${billStatusHtml}
                     </span>
+                    ${tagsHtml}
                 </div>
                 <div class="tx-right">
-                    <div class="tx-amount ${tx.type}">
+                    <div class="tx-amount ${tx.type} privacy-value">
                         ${isIncome ? "+" : "-"} ${formatCurrency(tx.amount)}
                     </div>
                     <div class="tx-actions">
-                        <button class="btn-action btn-edit" onclick="abrirModalEdicao(${tx.id})" title="Editar movimentação">✏️</button>
-                        <button class="btn-action btn-delete" onclick="solicitarExclusao(${tx.id})" title="Remover movimentação">🗑️</button>
+                        <button class="btn-action btn-edit" onclick="abrirModalEdicao(${tx.id})" title="Editar movimentação" aria-label="Editar ${escapeHtml(tx.description)}">✏️</button>
+                        <button class="btn-action btn-delete" onclick="solicitarExclusao(${tx.id})" title="Remover movimentação" aria-label="Remover ${escapeHtml(tx.description)}">🗑️</button>
                     </div>
                 </div>
             </div>
@@ -566,6 +616,16 @@ function renderizarListaTransacoes(transactions) {
 
     listaContainer.innerHTML = html;
 }
+
+window.filtrarPorTag = function(tag) {
+    state.filters.tag = tag;
+    const inputTag = document.getElementById("filter-tag");
+    if (inputTag) inputTag.value = tag;
+    state.pagination.page = 1;
+    buscarTransacoes();
+    showCyberToast(`Filtrando movimentações com a tag ${tag}`, "info");
+    announceToA11y(`Filtro aplicado para a tag ${tag}`);
+};
 
 window.focarFormulario = function() {
     const input = document.getElementById("description");
@@ -800,6 +860,9 @@ function configurarFormularioTransacao() {
             amount: parseFloat(document.getElementById("amount").value),
             description: document.getElementById("description").value,
             category: document.getElementById("category").value,
+            tags: document.getElementById("tags") ? document.getElementById("tags").value.trim() : "",
+            due_date: document.getElementById("due_date") && document.getElementById("due_date").value ? document.getElementById("due_date").value : null,
+            is_paid: document.getElementById("is_paid") ? document.getElementById("is_paid").checked : true,
             transaction_date: document.getElementById("transaction_date").value || new Date().toISOString().split("T")[0]
         };
 
@@ -812,6 +875,8 @@ function configurarFormularioTransacao() {
             showCyberToast("Movimentação registrada com sucesso!", "success");
             form.reset();
             document.getElementById("transaction_date").value = new Date().toISOString().split("T")[0];
+            const isPaidCheck = document.getElementById("is_paid");
+            if (isPaidCheck) isPaidCheck.checked = true;
 
             await carregarTodosOsDados();
         } catch (err) {
@@ -908,6 +973,9 @@ function configurarModais() {
             amount: parseFloat(document.getElementById("edit-amount").value),
             description: document.getElementById("edit-description").value,
             category: document.getElementById("edit-category").value,
+            tags: document.getElementById("edit-tags") ? document.getElementById("edit-tags").value.trim() : "",
+            due_date: document.getElementById("edit-due-date") && document.getElementById("edit-due-date").value ? document.getElementById("edit-due-date").value : null,
+            is_paid: document.getElementById("edit-is-paid") ? document.getElementById("edit-is-paid").checked : true,
             transaction_date: document.getElementById("edit-date").value
         };
 
@@ -1007,16 +1075,31 @@ function configurarModais() {
     });
 }
 
+let lastFocusedElement = null;
+
 function fecharModal(modal) {
-    if (modal) modal.classList.add("hidden");
+    if (modal) {
+        modal.classList.add("hidden");
+        if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+            lastFocusedElement.focus();
+        }
+    }
 }
 
 function abrirModal(modal) {
-    if (modal) modal.classList.remove("hidden");
+    if (modal) {
+        lastFocusedElement = document.activeElement;
+        modal.classList.remove("hidden");
+        const focusable = modal.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), [href]');
+        if (focusable) focusable.focus();
+    }
 }
 
 function fecharTodosModais() {
     document.querySelectorAll(".modal-overlay").forEach(m => m.classList.add("hidden"));
+    if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+        lastFocusedElement.focus();
+    }
 }
 
 window.abrirModalEdicao = function(id) {
@@ -1029,6 +1112,15 @@ window.abrirModalEdicao = function(id) {
     document.getElementById("edit-description").value = tx.description;
     document.getElementById("edit-category").value = tx.category;
     document.getElementById("edit-date").value = tx.transaction_date;
+    
+    const editTags = document.getElementById("edit-tags");
+    if (editTags) editTags.value = tx.tags || "";
+
+    const editDueDate = document.getElementById("edit-due-date");
+    if (editDueDate) editDueDate.value = tx.due_date || "";
+
+    const editIsPaid = document.getElementById("edit-is-paid");
+    if (editIsPaid) editIsPaid.checked = tx.is_paid !== false;
 
     abrirModal(document.getElementById("edit-modal"));
 };
@@ -1037,6 +1129,487 @@ window.solicitarExclusao = function(id) {
     state.pendingDeleteTxId = id;
     abrirModal(document.getElementById("confirm-modal"));
 };
+
+// ==========================================================================
+// ACESSIBILIDADE (WCAG 2.1 AA) — FOCUS TRAP & LEITOR DE TELA
+// ==========================================================================
+
+function configurarFocusTrapModais() {
+    const modais = document.querySelectorAll(".modal-overlay");
+    modais.forEach(modal => {
+        modal.addEventListener("keydown", (e) => {
+            if (e.key === "Tab") {
+                const focusables = modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+                if (!focusables.length) return;
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+
+                if (e.shiftKey) {
+                    if (document.activeElement === first) {
+                        last.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        first.focus();
+                        e.preventDefault();
+                    }
+                }
+            }
+        });
+    });
+}
+
+function announceToA11y(msg) {
+    const announcer = document.getElementById("a11y-announcer");
+    if (announcer) {
+        announcer.innerText = "";
+        setTimeout(() => { announcer.innerText = msg; }, 50);
+    }
+}
+
+// ==========================================================================
+// MODO PRIVACIDADE (CONFIDENCIALIDADE VISUAL)
+// ==========================================================================
+
+function configurarModoPrivacidade() {
+    const btnPrivacy = document.getElementById("btn-privacy-toggle");
+    const privacyIcon = document.getElementById("privacy-icon");
+
+    if (state.privacyMode) {
+        document.body.classList.add("privacy-masked");
+        if (privacyIcon) privacyIcon.innerText = "🙈";
+        if (btnPrivacy) btnPrivacy.classList.add("active");
+    }
+
+    if (btnPrivacy) {
+        btnPrivacy.addEventListener("click", () => {
+            state.privacyMode = !state.privacyMode;
+            localStorage.setItem("privacy_mode", state.privacyMode ? "true" : "false");
+
+            if (state.privacyMode) {
+                document.body.classList.add("privacy-masked");
+                if (privacyIcon) privacyIcon.innerText = "🙈";
+                btnPrivacy.classList.add("active");
+                showCyberToast("Modo Privacidade Ativado (Valores Ocultos)", "info");
+                announceToA11y("Modo de privacidade ativado. Os valores monetários estão ocultos.");
+            } else {
+                document.body.classList.remove("privacy-masked");
+                if (privacyIcon) privacyIcon.innerText = "👁️";
+                btnPrivacy.classList.remove("active");
+                showCyberToast("Modo Privacidade Desativado (Valores Visíveis)", "info");
+                announceToA11y("Modo de privacidade desativado. Os valores estão visíveis.");
+            }
+
+            // Re-renderiza componentes com formatação monetária
+            if (state.summary) {
+                renderizarHUD(state.summary);
+                renderizarPrevisaoInteligente(state.summary.forecast);
+                atualizarSimuladorCenarios();
+            }
+            renderizarListaTransacoes(state.transactions);
+            renderizarOrcamentos(state.budgets);
+            renderizarMetas(state.goals);
+            if (state.bills) renderizarContasAlertas(state.bills);
+            if (state.timelineData) {
+                const balBadge = document.getElementById("timeline-current-balance");
+                if (balBadge) balBadge.innerText = `Patrimônio: ${formatCurrency(state.timelineData.ending_balance)}`;
+                renderGraficoLinhaTempo(state.timelineData.points);
+            }
+        });
+    }
+}
+
+// ==========================================================================
+// COMANDOS DE VOZ (WEB SPEECH API)
+// ==========================================================================
+
+function configurarComandosVoz() {
+    const btnVoice = document.getElementById("btn-voice-command");
+    if (!btnVoice) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        btnVoice.title = "Reconhecimento de voz não suportado neste navegador.";
+        btnVoice.style.opacity = "0.5";
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    let isRecording = false;
+
+    btnVoice.addEventListener("click", () => {
+        if (isRecording) {
+            recognition.stop();
+            return;
+        }
+        try {
+            recognition.start();
+            isRecording = true;
+            btnVoice.classList.add("recording");
+            showCyberToast("🎙️ Ouvindo... Fale sua movimentação (Ex: 'Gastei 50 em almoço')", "info");
+            announceToA11y("Microfone ativado. Fale o tipo, valor e descrição da sua movimentação.");
+        } catch (e) {
+            console.warn(e);
+        }
+    });
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        console.log("[Voz reconhecida]:", transcript);
+        processarComandoVoz(transcript);
+    };
+
+    recognition.onend = () => {
+        isRecording = false;
+        btnVoice.classList.remove("recording");
+    };
+
+    recognition.onerror = () => {
+        isRecording = false;
+        btnVoice.classList.remove("recording");
+        showCyberToast("Não foi possível reconhecer o áudio. Tente falar novamente.", "warning");
+    };
+}
+
+function processarComandoVoz(text) {
+    // 1. Identifica Tipo
+    let type = "expense";
+    if (/recebi|ganhei|salário|salario|depósito|deposito|renda|dividendos|freela/i.test(text)) {
+        type = "income";
+    }
+
+    // 2. Extrai Valor
+    const amountMatch = text.match(/(\d+(?:[,\.]\d{1,2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(",", ".")) : null;
+
+    // 3. Categoria Inteligente
+    let category = "Outros";
+    if (/almoço|almoco|jantar|comida|mercado|restaurante|café|lanche|pizza|supermercado/i.test(text)) category = "Alimentação";
+    else if (/aluguel|condomínio|condominio|luz|água|agua|internet|iptu|gás|gas|casa/i.test(text)) category = "Moradia";
+    else if (/uber|gasolina|combustível|combustivel|ônibus|onibus|metrô|metro|estacionamento|pedágio|carro/i.test(text)) category = "Transporte";
+    else if (/curso|livro|faculdade|escola|estudo|udemy|apostila/i.test(text)) category = "Estudo";
+    else if (/cinema|jogo|steam|viagem|passeio|festa|bar|balada|lazer/i.test(text)) category = "Lazer";
+    else if (/farmácia|farmacia|médico|medico|remédio|remedio|hospital|dentista|exame|saúde|saude/i.test(text)) category = "Saúde";
+    else if (/salário|salario|freela|freelance|bônus|cliente|trabalho/i.test(text)) category = "Trabalho";
+    else if (/investimento|ações|acoes|fii|tesouro|cripto|bitcoin/i.test(text)) category = "Investimentos";
+
+    // 4. Descrição Normalizada
+    let desc = text
+        .replace(/^(gastei|paguei|comprei|recebi|ganhei|coloquei)\s*/i, "")
+        .replace(/(\d+(?:[,\.]\d{1,2})?)\s*(reais|euros|dólares|conto|pila)?/i, "")
+        .replace(/^(em|no|na|de|com)\s*/i, "")
+        .trim();
+
+    if (!desc) desc = `${category} (Voz)`;
+    desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+
+    // Preenche o formulário
+    const elType = document.getElementById("type");
+    const elAmount = document.getElementById("amount");
+    const elDesc = document.getElementById("description");
+    const elCat = document.getElementById("category");
+
+    if (elType) elType.value = type;
+    if (elAmount && amount) elAmount.value = amount;
+    if (elDesc) elDesc.value = desc;
+    if (elCat) elCat.value = category;
+
+    window.focarFormulario();
+
+    const resumo = `${type === 'income' ? 'Receita' : 'Despesa'} de ${amount ? amount : ''} em "${desc}" identificada!`;
+    showCyberToast(`🎙️ ${resumo}`, "success");
+    announceToA11y(resumo);
+}
+
+// ==========================================================================
+// PWA & NOTIFICAÇÕES WEB PUSH
+// ==========================================================================
+
+function inicializarPWA() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('[PWA] Service Worker registrado:', reg.scope))
+                .catch(err => console.warn('[PWA] Falha ao registrar Service Worker:', err));
+        });
+    }
+}
+
+function configurarNotificacoesPush() {
+    const btnPush = document.getElementById("btn-push-toggle");
+    const btnReq = document.getElementById("btn-request-notification-perm");
+    const pushIcon = document.getElementById("push-icon");
+
+    function atualizarEstadoPush() {
+        if (!("Notification" in window)) {
+            if (btnPush) btnPush.style.display = "none";
+            return;
+        }
+        if (Notification.permission === "granted") {
+            if (pushIcon) pushIcon.innerText = "🔔";
+            if (btnPush) btnPush.classList.add("active");
+            if (btnReq) {
+                btnReq.innerText = "✓ Notificações Ativas";
+                btnReq.disabled = true;
+            }
+        } else {
+            if (pushIcon) pushIcon.innerText = "🔕";
+            if (btnPush) btnPush.classList.remove("active");
+        }
+    }
+
+    atualizarEstadoPush();
+
+    const solicitarPermissao = async () => {
+        if (!("Notification" in window)) {
+            showCyberToast("Seu navegador não suporta notificações Web Push.", "warning");
+            return;
+        }
+
+        try {
+            const permission = await Notification.requestPermission();
+            atualizarEstadoPush();
+            if (permission === "granted") {
+                showCyberToast("🔔 Notificações ativadas! Você receberá lembretes de contas e vencimentos.", "success");
+                announceToA11y("Notificações push ativadas com sucesso.");
+
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SCHEDULE_LOCAL_NOTIFICATION',
+                        title: 'FinanceTracker Ativado!',
+                        body: 'Lembretes de contas a vencer e controle financeiro sincronizados.',
+                        delayMs: 300
+                    });
+                }
+            } else {
+                showCyberToast("Permissão de notificação negada no navegador.", "warning");
+            }
+        } catch (e) {
+            console.warn(e);
+        }
+    };
+
+    if (btnPush) btnPush.addEventListener("click", solicitarPermissao);
+    if (btnReq) btnReq.addEventListener("click", solicitarPermissao);
+}
+
+function dispararLembreteSegundoPlano(data) {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+
+    if (data.today_count > 0 || data.overdue_count > 0) {
+        const title = data.overdue_count > 0 ? '⚠️ Contas Atrasadas!' : '🟡 Conta Vencendo Hoje!';
+        const body = `Você possui ${data.overdue_count > 0 ? `${data.overdue_count} conta(s) em atraso` : `${data.today_count} conta(s) que vencem hoje`}. Total pendente: ${formatCurrency(data.total_pending_amount)}.`;
+
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SCHEDULE_LOCAL_NOTIFICATION',
+            title,
+            body,
+            delayMs: 1500
+        });
+    }
+}
+
+// ==========================================================================
+// MÓDULO DE ALERTAS DE VENCIMENTO & CONTAS
+// ==========================================================================
+
+async function carregarContasAlertas() {
+    try {
+        const res = await fetch(`${API_URL}/transactions/${state.userId}/bills`, getFetchOptions("GET"));
+        if (!res.ok) return;
+        const data = await res.json();
+        state.bills = data.bills || [];
+
+        // Atualiza pílulas do cabeçalho
+        const pOverdue = document.getElementById("pill-overdue");
+        const pToday = document.getElementById("pill-today");
+        const pUpcoming = document.getElementById("pill-upcoming");
+        if (pOverdue) pOverdue.innerText = `🔴 ${data.overdue_count} Atrasada${data.overdue_count === 1 ? '' : 's'}`;
+        if (pToday) pToday.innerText = `🟡 ${data.today_count} Vencendo Hoje`;
+        if (pUpcoming) pUpcoming.innerText = `🔵 ${data.upcoming_count} Próxima${data.upcoming_count === 1 ? '' : 's'}`;
+
+        renderizarContasAlertas(state.bills);
+    } catch (err) {
+        console.error("Falha ao carregar alertas de contas:", err);
+    }
+}
+
+function renderizarContasAlertas(bills) {
+    const container = document.getElementById("bills-list");
+    if (!container) return;
+
+    if (!bills || bills.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🔔</span>
+                <p class="empty-msg">Nenhuma conta com data de vencimento registrada. Defina uma data de vencimento ao criar despesas para ativar lembretes.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = "";
+    bills.forEach(bill => {
+        html += `
+            <div class="bill-card status-${bill.status}">
+                <div class="bill-header">
+                    <span class="bill-title">${escapeHtml(bill.description)}</span>
+                    <span class="bill-badge ${bill.status}">${escapeHtml(bill.label)}</span>
+                </div>
+                <div class="bill-body">
+                    <span class="bill-amount privacy-value text-${bill.type}">
+                        ${bill.type === 'income' ? '+' : '-'} ${formatCurrency(bill.amount)}
+                    </span>
+                    <span class="bill-date">📅 ${bill.due_date}</span>
+                </div>
+                <div class="bill-actions">
+                    <span class="category-tag">${escapeHtml(bill.category)}</span>
+                    <button type="button" class="btn-toggle-paid" onclick="alternarStatusConta(${bill.id})" aria-label="Marcar como ${bill.is_paid ? 'pendente' : 'pago'}">
+                        ${bill.is_paid ? '↩ Marcar Pendente' : '✓ Marcar como Paga'}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+window.alternarStatusConta = async function(id) {
+    try {
+        const res = await fetch(`${API_URL}/transactions/${id}/toggle-paid`, getFetchOptions("PATCH"));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Erro ao alterar status.");
+
+        showCyberToast(data.message, "success");
+        await Promise.all([
+            carregarContasAlertas(),
+            buscarTransacoes(),
+            buscarResumoEPrevisao()
+        ]);
+    } catch (err) {
+        showCyberToast(err.message, "error");
+    }
+};
+
+// ==========================================================================
+// EVOLUÇÃO PATRIMONIAL (LINHA DO TEMPO)
+// ==========================================================================
+
+async function carregarEvolucaoPatrimonial() {
+    try {
+        const res = await fetch(`${API_URL}/transactions/${state.userId}/timeline?days=30`, getFetchOptions("GET"));
+        if (!res.ok) return;
+        const data = await res.json();
+        state.timelineData = data;
+
+        const balBadge = document.getElementById("timeline-current-balance");
+        if (balBadge) {
+            balBadge.innerText = `Patrimônio: ${formatCurrency(data.ending_balance)}`;
+        }
+
+        renderGraficoLinhaTempo(data.points);
+    } catch (err) {
+        console.error("Falha ao carregar evolução patrimonial:", err);
+    }
+}
+
+function renderGraficoLinhaTempo(points) {
+    const canvas = document.getElementById("timelineChart");
+    if (!canvas || !window.Chart) return;
+
+    if (state.timelineChartInstance) {
+        state.timelineChartInstance.destroy();
+    }
+
+    if (!points || points.length === 0) return;
+
+    const labels = points.map(p => p.date);
+    const dataValues = points.map(p => p.cumulative_balance);
+
+    const ctx = canvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, "rgba(0, 240, 255, 0.45)");
+    gradient.addColorStop(1, "rgba(0, 240, 255, 0.0)");
+
+    state.timelineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Saldo Acumulado',
+                data: dataValues,
+                borderColor: '#00f0ff',
+                backgroundColor: gradient,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: '#bd00ff',
+                pointBorderColor: '#00f0ff',
+                pointRadius: 4,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Saldo Acumulado: ${formatCurrency(context.raw)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94a3b8', font: { size: 11 } }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: function(value) { return formatCurrency(value); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ==========================================================================
+// MOBILE BOTTOM NAVIGATION
+// ==========================================================================
+
+function configurarNavegacaoMobile() {
+    const navItems = document.querySelectorAll(".bottom-nav-item[data-nav-target]");
+    navItems.forEach(item => {
+        item.addEventListener("click", () => {
+            navItems.forEach(n => n.classList.remove("active"));
+            item.classList.add("active");
+            const targetId = item.getAttribute("data-nav-target");
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        });
+    });
+
+    const btnNewMobile = document.getElementById("btn-mobile-new-tx");
+    if (btnNewMobile) {
+        btnNewMobile.addEventListener("click", () => {
+            window.focarFormulario();
+        });
+    }
+}
 
 function escapeHtml(str) {
     if (!str) return "";

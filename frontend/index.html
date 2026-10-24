@@ -3,16 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanceTracker — Controle Financeiro Pessoal</title>
+    <title>FinanceTracker — Controle Financeiro Inteligente</title>
+    <!-- PWA Meta Tags & Icons -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00ffcc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FinanceTracker">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/icon.svg">
+    <!-- Chart.js para Linha do Tempo e Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
+    <!-- Região A11y para Leitores de Tela -->
+    <div id="a11y-announcer" class="sr-only" aria-live="polite"></div>
+
     <!-- Notificações Toast Flutuantes -->
-    <div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
     <header class="navbar">
         <div class="logo">
-            <svg class="cyber-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg class="cyber-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path d="M18 2L32 10V26L18 34L4 26V10L18 2Z" fill="url(#cyan-purple-grad)" stroke="#00f0ff" stroke-width="2" stroke-linejoin="round"/>
                 <path d="M18 10L25 14V22L18 26L11 22V14L18 10Z" fill="#030712" stroke="#bd00ff" stroke-width="1.5"/>
                 <circle cx="18" cy="18" r="3" fill="#00f0ff" class="logo-core"/>
@@ -23,14 +36,29 @@
                     </linearGradient>
                 </defs>
             </svg>
-            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.1</span></h1>
+            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.2</span></h1>
         </div>
 
         <div class="navbar-actions">
+            <!-- Botão de Modo Privacidade (Confidencialidade Visual) -->
+            <button id="btn-privacy-toggle" class="btn-icon" aria-label="Alternar modo privacidade" title="Ocultar/Exibir valores monetários sensíveis">
+                <span id="privacy-icon" aria-hidden="true">👁️</span>
+            </button>
+
+            <!-- Botão de Notificações Web Push -->
+            <button id="btn-push-toggle" class="btn-icon" aria-label="Ativar notificações push" title="Ativar lembretes de contas e notificações em segundo plano">
+                <span id="push-icon" aria-hidden="true">🔔</span>
+            </button>
+
+            <!-- Botão de Comando de Voz -->
+            <button id="btn-voice-command" class="btn-icon btn-voice" aria-label="Entrada por comando de voz" title="Ditar movimentação (Ex: 'Gastei 50 reais em almoço')">
+                <span id="voice-icon" aria-hidden="true">🎙️</span>
+            </button>
+
             <!-- Alternador de Moeda -->
             <div class="currency-control">
                 <label for="currency-select" class="sr-only">Moeda</label>
-                <select id="currency-select" class="select-chip" title="Selecionar moeda de exibição">
+                <select id="currency-select" class="select-chip" title="Selecionar moeda de exibição" aria-label="Moeda de exibição">
                     <option value="BRL">🇧🇷 BRL (R$)</option>
                     <option value="USD">🇺🇸 USD ($)</option>
                     <option value="EUR">🇪🇺 EUR (€)</option>
@@ -38,18 +66,18 @@
             </div>
 
             <!-- Alternador de Tema: Cyberpunk vs Clean -->
-            <button id="theme-toggle-btn" class="btn-theme-toggle" title="Alternar entre tema Cyberpunk e Clean Minimal">
-                <span id="theme-icon">⚡</span> <span id="theme-label">Cyberpunk</span>
+            <button id="theme-toggle-btn" class="btn-theme-toggle" title="Alternar entre tema Cyberpunk e Clean Minimal" aria-label="Alternar tema visual">
+                <span id="theme-icon" aria-hidden="true">⚡</span> <span id="theme-label">Cyberpunk</span>
             </button>
 
             <!-- Perfil do Usuário e Status -->
             <div class="user-profile">
                 <div class="user-info-chip">
-                    <span class="user-status-dot"></span>
+                    <span class="user-status-dot" aria-hidden="true"></span>
                     <span id="user-display">Carregando...</span>
                     <span id="demo-badge-indicator" class="guest-pill hidden">MODO DEMO</span>
                 </div>
-                <button id="logout-btn" class="btn-logout" title="Encerrar sessão">Sair</button>
+                <button id="logout-btn" class="btn-logout" title="Encerrar sessão" aria-label="Encerrar sessão">Sair</button>
             </div>
         </div>
     </header>
@@ -57,30 +85,65 @@
     <main class="dashboard-container">
         
         <!-- Cards de Resumo Principal (HUD) -->
-        <section class="summary-cards">
+        <section id="summary-section" class="summary-cards">
             <div class="card deposits">
                 <div class="card-header-flex">
                     <h3>DEPÓSITOS (ENTRADAS)</h3>
-                    <span class="hud-icon">↗</span>
+                    <span class="hud-icon" aria-hidden="true">↗</span>
                 </div>
-                <p id="total-deposits">R$ 0,00</p>
+                <p id="total-deposits" class="privacy-value">R$ 0,00</p>
                 <span class="card-subtitle" id="deposits-count">0 entradas registradas</span>
             </div>
             <div class="card expenses">
                 <div class="card-header-flex">
                     <h3>GASTOS (SAÍDAS)</h3>
-                    <span class="hud-icon">↘</span>
+                    <span class="hud-icon" aria-hidden="true">↘</span>
                 </div>
-                <p id="total-expenses">R$ 0,00</p>
+                <p id="total-expenses" class="privacy-value">R$ 0,00</p>
                 <span class="card-subtitle" id="expenses-count">0 saídas registradas</span>
             </div>
             <div class="card balance">
                 <div class="card-header-flex">
                     <h3>SALDO EM CONTA</h3>
-                    <span class="hud-icon">◈</span>
+                    <span class="hud-icon" aria-hidden="true">◈</span>
                 </div>
-                <p id="net-balance">R$ 0,00</p>
+                <p id="net-balance" class="privacy-value">R$ 0,00</p>
                 <span class="card-subtitle" id="balance-status">Balanço líquido</span>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE ALERTAS DE VENCIMENTO & CONTAS A PAGAR/RECEBER -->
+        <section id="bills-section" class="bills-section card">
+            <div class="section-header-flex">
+                <div>
+                    <h2>🔔 Alertas de Vencimento & Contas</h2>
+                    <p class="section-tagline">Monitore contas pendentes, vencendo hoje ou atrasadas com lembretes automáticos.</p>
+                </div>
+                <button id="btn-request-notification-perm" class="btn-secondary" title="Ativar lembretes no navegador/telemóvel">🔔 Ativar Notificações</button>
+            </div>
+            <div class="bills-summary-pills">
+                <span id="pill-overdue" class="bill-pill overdue">🔴 0 Atrasadas</span>
+                <span id="pill-today" class="bill-pill today">🟡 0 Vencendo Hoje</span>
+                <span id="pill-upcoming" class="bill-pill upcoming">🔵 0 Próximas</span>
+            </div>
+            <div id="bills-list" class="bills-grid">
+                <p class="empty-msg">Nenhuma conta com data de vencimento registrada.</p>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE EVOLUÇÃO PATRIMONIAL (LINHA DO TEMPO) -->
+        <section id="timeline-section" class="timeline-section card">
+            <div class="section-header-flex">
+                <div>
+                    <h2>📈 Evolução Patrimonial (Linha do Tempo)</h2>
+                    <p class="section-tagline">Variação acumulada do seu saldo ao longo dos dias e meses.</p>
+                </div>
+                <div class="timeline-controls">
+                    <span id="timeline-current-balance" class="bill-pill upcoming">Patrimônio Líquido</span>
+                </div>
+            </div>
+            <div class="timeline-chart-wrapper">
+                <canvas id="timelineChart" height="90" aria-label="Gráfico de linha da evolução patrimonial ao longo do tempo"></canvas>
             </div>
         </section>
 
@@ -187,7 +250,7 @@
         <div class="dashboard-grid">
             
             <!-- Formulário de Nova Movimentação -->
-            <section class="form-section card">
+            <section id="form-section" class="form-section card">
                 <div class="form-title-flex">
                     <h2>➕ Nova Movimentação</h2>
                     <span class="shortcut-tag" title="Atalho de teclado">[N]</span>
@@ -227,6 +290,21 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="tags">Etiquetas / Tags (Hashtags)</label>
+                        <input type="text" id="tags" placeholder="Ex: #viagem #essencial #fixo" maxlength="255">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="due_date">Data de Vencimento (Opcional - Alertas)</label>
+                        <input type="date" id="due_date">
+                    </div>
+
+                    <div class="form-group checkbox-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                        <input type="checkbox" id="is_paid" checked style="width: auto; cursor: pointer;">
+                        <label for="is_paid" style="margin: 0; cursor: pointer; font-size: 0.85rem;">Já foi liquidada / paga?</label>
+                    </div>
+
+                    <div class="form-group">
                         <label for="transaction_date">Data da Transação</label>
                         <input type="date" id="transaction_date" required>
                     </div>
@@ -236,7 +314,7 @@
             </section>
 
             <!-- Histórico Recente de Transações com Filtros Avançados e Paginação -->
-            <section class="history-section card">
+            <section id="history-section" class="history-section card">
                 <div class="history-header">
                     <h2>📜 Histórico de Movimentações</h2>
                     <div class="export-actions">
@@ -251,10 +329,16 @@
                         <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição... [F]" autocomplete="off">
                     </div>
 
+                    <div class="search-input-wrapper">
+                        <input type="text" id="filter-tag" placeholder="🏷️ Filtrar por tag (#...)" autocomplete="off">
+                    </div>
+
                     <div class="filter-controls">
                         <select id="filter-type">
                             <option value="">Todos os tipos</option>
                             <option value="income">Apenas Entradas</option>
+                            <option value="expense">Apenas Saídas</option>
+                        </select>
                             <option value="expense">Apenas Saídas</option>
                         </select>
 
@@ -360,6 +444,21 @@
                         <option value="Investimentos">Investimentos</option>
                         <option value="Outros">Outros</option>
                     </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-tags">Etiquetas / Tags</label>
+                    <input type="text" id="edit-tags" placeholder="Ex: #viagem #essencial" maxlength="255">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-due-date">Data de Vencimento</label>
+                    <input type="date" id="edit-due-date">
+                </div>
+
+                <div class="form-group checkbox-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    <input type="checkbox" id="edit-is-paid" style="width: auto; cursor: pointer;">
+                    <label for="edit-is-paid" style="margin: 0; cursor: pointer; font-size: 0.85rem;">Já foi liquidada / paga?</label>
                 </div>
 
                 <div class="form-group">
@@ -476,6 +575,29 @@
             </form>
         </div>
     </div>
+
+    <!-- Barra de Navegação Inferior Fixa para Mobile (Bottom Navigation) -->
+    <nav class="bottom-nav" aria-label="Navegação móvel inferior">
+        <button class="bottom-nav-item active" data-nav-target="summary-section" aria-label="Início e saldos">
+            <span class="nav-icon" aria-hidden="true">📊</span>
+            <span>Início</span>
+        </button>
+        <button class="bottom-nav-item" data-nav-target="bills-section" aria-label="Contas a vencer e alertas">
+            <span class="nav-icon" aria-hidden="true">🔔</span>
+            <span>Alertas</span>
+        </button>
+        <button class="bottom-nav-item btn-nav-primary" id="btn-mobile-new-tx" aria-label="Adicionar nova movimentação">
+            <span class="nav-icon" aria-hidden="true">➕</span>
+        </button>
+        <button class="bottom-nav-item" data-nav-target="timeline-section" aria-label="Gráfico de evolução patrimonial">
+            <span class="nav-icon" aria-hidden="true">📈</span>
+            <span>Evolução</span>
+        </button>
+        <button class="bottom-nav-item" data-nav-target="history-section" aria-label="Histórico de transações">
+            <span class="nav-icon" aria-hidden="true">📜</span>
+            <span>Histórico</span>
+        </button>
+    </nav>
 
     <script src="./assets/js/app.js"></script>
 </body>

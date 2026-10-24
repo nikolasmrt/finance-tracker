@@ -41,6 +41,9 @@ class TransactionCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=255, description="Descrição da movimentação")
     category: str = Field(..., min_length=1, max_length=50, description="Categoria da movimentação")
     transaction_date: Optional[date] = Field(default=None, description="Data da transação (padrão: hoje)")
+    tags: Optional[str] = Field(default="", max_length=255, description="Etiquetas/Hashtags (ex: #viagem #fixo)")
+    due_date: Optional[date] = Field(default=None, description="Data de vencimento para contas futuras")
+    is_paid: Optional[bool] = Field(default=True, description="Indica se a transação já foi paga/liquidada")
 
     @field_validator("type")
     @classmethod
@@ -55,6 +58,9 @@ class TransactionUpdate(BaseModel):
     description: Optional[str] = Field(default=None, min_length=1, max_length=255)
     category: Optional[str] = Field(default=None, min_length=1, max_length=50)
     transaction_date: Optional[date] = None
+    tags: Optional[str] = None
+    due_date: Optional[date] = None
+    is_paid: Optional[bool] = None
 
     @field_validator("type")
     @classmethod
@@ -72,6 +78,9 @@ class TransactionResponse(BaseModel):
     description: str
     category: str
     transaction_date: date
+    tags: Optional[str] = ""
+    due_date: Optional[date] = None
+    is_paid: bool = True
 
 class PaginationMeta(BaseModel):
     page: int
@@ -82,6 +91,43 @@ class PaginationMeta(BaseModel):
 class PaginatedTransactionsResponse(BaseModel):
     transactions: List[TransactionResponse]
     pagination: PaginationMeta
+
+# --- Schemas de Evolução Patrimonial (Timeline) e Alertas de Contas ---
+
+class TimelinePoint(BaseModel):
+    date: str
+    income: float
+    expense: float
+    daily_net: float
+    cumulative_balance: float
+
+class TimelineResponse(BaseModel):
+    points: List[TimelinePoint]
+    starting_balance: float
+    ending_balance: float
+    total_days: int
+
+class BillItem(BaseModel):
+    id: int
+    user_id: int
+    type: str
+    amount: float
+    description: str
+    category: str
+    transaction_date: date
+    due_date: date
+    is_paid: bool
+    tags: Optional[str] = ""
+    status: str  # 'overdue', 'today', 'upcoming', 'paid'
+    days_diff: int
+    label: str
+
+class BillsResponse(BaseModel):
+    bills: List[BillItem]
+    overdue_count: int
+    today_count: int
+    upcoming_count: int
+    total_pending_amount: float
 
 # --- Schemas de Resumo Analítico e Previsão Inteligente ---
 

@@ -35,9 +35,19 @@ def init_db():
                     description VARCHAR(255) NOT NULL,
                     category VARCHAR(50) NOT NULL,
                     transaction_date DATE NOT NULL,
+                    tags VARCHAR(255) DEFAULT '',
+                    due_date DATE,
+                    is_paid BOOLEAN DEFAULT TRUE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
+            """)
+
+            # Migração de colunas adicionais para transactions existentes
+            cursor.execute("""
+                ALTER TABLE transactions ADD COLUMN IF NOT EXISTS tags VARCHAR(255) DEFAULT '';
+                ALTER TABLE transactions ADD COLUMN IF NOT EXISTS due_date DATE;
+                ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT TRUE;
             """)
 
             # Tabela de Orçamentos Mensais por Categoria
@@ -87,6 +97,10 @@ def init_db():
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_users_demo 
                 ON users(is_demo, created_at);
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_transactions_due_date 
+                ON transactions(user_id, due_date, is_paid);
             """)
 
         print("Esquema relacional verificado e sincronizado com sucesso no PostgreSQL!")

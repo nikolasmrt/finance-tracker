@@ -1,0 +1,48 @@
+{
+  "name": "FinanceTracker — Gestão Financeira Inteligente",
+  "short_name": "FinanceTracker",
+  "description": "Controle financeiro pessoal avançado com previsões analíticas, orçamentos e inteligência offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07090e",
+  "theme_color": "#00ffcc",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Transação",
+      "short_name": "Adicionar",
+      "description": "Registrar nova receita ou despesa rapidamente",
+      "url": "/#new-tx",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Contas a Vencer",
+      "short_name": "Alertas",
+      "description": "Ver contas próximas e vencidas",
+      "url": "/#bills",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

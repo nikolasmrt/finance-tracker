@@ -1,0 +1,43 @@
+{
+  "packageId": "com.financetracker.app",
+  "host": "finance-tracker-blond-ten.vercel.app",
+  "name": "FinanceTracker",
+  "launcherName": "FinanceTracker",
+  "themeColor": "#00FFCC",
+  "navigationColor": "#07090E",
+  "backgroundColor": "#07090E",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://finance-tracker-blond-ten.vercel.app/assets/icons/icon-512.png",
+  "maskableIconUrl": "https://finance-tracker-blond-ten.vercel.app/assets/icons/icon-512.png",
+  "appVersionName": "2.2.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Nova Transação",
+      "shortName": "Adicionar",
+      "url": "/#new-tx",
+      "icon": "https://finance-tracker-blond-ten.vercel.app/assets/icons/icon-192.png"
+    },
+    {
+      "name": "Contas a Vencer",
+      "shortName": "Alertas",
+      "url": "/#bills",
+      "icon": "https://finance-tracker-blond-ten.vercel.app/assets/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://finance-tracker-blond-ten.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  }
+}

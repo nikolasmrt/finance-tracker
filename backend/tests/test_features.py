@@ -65,3 +65,46 @@ def test_cron_demo_cleanup(client):
     data = res.json()
     assert data["status"] == "success"
     assert "deleted_count" in data
+
+def test_timeline_and_bills_feature(client, auth_headers):
+    """Testa endpoints da linha do tempo, contas a vencer e alternância de liquidação."""
+    user_id = auth_headers["user_id"]
+    headers = auth_headers["headers"]
+
+    # 1. Cria uma transação com tags, data de vencimento e pendente
+    tx_payload = {
+        "user_id": user_id,
+        "type": "expense",
+        "amount": 250.00,
+        "description": "Fatura Internet Fibra Teste",
+        "category": "Moradia",
+        "transaction_date": "2026-10-24",
+        "tags": "#internet #homeoffice",
+        "due_date": "2026-10-25",
+        "is_paid": False
+    }
+    create_res = client.post("/api/transactions", json=tx_payload, headers=headers)
+    assert create_res.status_code == 201
+    tx_data = create_res.json()["transaction"]
+    tx_id = tx_data["id"]
+    assert tx_data["tags"] == "#internet #homeoffice"
+    assert tx_data["is_paid"] is False
+
+    # 2. Testa a rota de contas a vencer (bills)
+    bills_res = client.get(f"/api/transactions/{user_id}/bills", headers=headers)
+    assert bills_res.status_code == 200
+    bills_data = bills_res.json()
+    assert "bills" in bills_data
+    assert any(b["id"] == tx_id for b in bills_data["bills"])
+
+    # 3. Testa alternar status de liquidação (toggle-paid)
+    toggle_res = client.patch(f"/api/transactions/{tx_id}/toggle-paid", headers=headers)
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["is_paid"] is True
+
+    # 4. Testa endpoint de série temporal (timeline)
+    timeline_res = client.get(f"/api/transactions/{user_id}/timeline?days=30", headers=headers)
+    assert timeline_res.status_code == 200
+    t_data = timeline_res.json()
+    assert "points" in t_data
+    assert "ending_balance" in t_data
