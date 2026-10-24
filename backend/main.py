@@ -87,7 +87,7 @@ def read_root():
     return {
         "status": "online",
         "system": "FinanceTracker API",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "database": db_status
     }
 
