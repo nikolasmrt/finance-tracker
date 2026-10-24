@@ -1,11 +1,12 @@
 # 📊 FinanceTracker — Sistema de Controlo Financeiro Pessoal
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Versão-2.0.0-cyan?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Versão-2.1.0-cyan?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Vercel-Serverless%20Ready-black?style=for-the-badge&logo=vercel">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-teal?style=for-the-badge&logo=fastapi">
-  <img src="https://img.shields.io/badge/PostgreSQL-15%2B-blue?style=for-the-badge&logo=postgresql">
-  <img src="https://img.shields.io/badge/Pytest-Passing%20(5/5)-success?style=for-the-badge">
+  <img src="https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-blue?style=for-the-badge&logo=postgresql">
+  <img src="https://img.shields.io/badge/Pytest-Passing%20(10/10)-success?style=for-the-badge">
   <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge">
 </p>
 
@@ -13,20 +14,40 @@
 
 ## 🚀 Sobre o Projeto
 
-O **FinanceTracker** é uma aplicação web full-stack de controle financeiro pessoal desenvolvida sob uma arquitetura de monorepo moderno. O sistema oferece gestão de utilizadores com criptografia segura de senhas (*Bcrypt*) e tokens *JWT*, registro dinâmico e edição de entradas e saídas, cálculo automático de saldos em tempo real, **mecanismo de Previsão Inteligente para 30 dias**, filtros avançados com busca instantânea, exportação para CSV e JSON, e visualização analítica através de gráficos de colunas interativos, tudo imerso numa interface futurista em estética **Cyberpunk Neon Glassmorphism**.
+O **FinanceTracker** é uma aplicação web full-stack de controle financeiro pessoal desenvolvida sob uma arquitetura moderna e escalável, 100% pronta para **deploy na Vercel** com **PostgreSQL Serverless (Neon/Supabase)**.
+
+Qualquer pessoa pode **testar instantaneamente na nuvem com 1 clique (sem necessidade de cadastro)** através do **Modo Convidado**, enquanto usuários reais contam com autenticação em **Cookies HTTP-Only**, proteção contra força bruta (*Rate Limiting*), orçamentos mensais com barras de progresso, metas de economia, simulador de cenários ("E se..."), suporte multi-moeda e alternância entre tema **Cyberpunk Neon** e **Clean Minimal**.
 
 ---
 
 ## ✨ Principais Funcionalidades
 
-- 🔐 **Autenticação Segura:** Cadastro e login com hash criptográfico Bcrypt e geração de tokens JWT (Bearer).
-- 💰 **HUD Financeiro Reativo:** Indicadores em tempo real de Depósitos (Entradas), Gastos (Saídas) e Saldo Líquido.
-- 🔮 **Previsão Inteligente (30 Dias):** Algoritmo preditivo que calcula o ritmo de gastos diários, entradas projetadas, taxa de poupança (%) e fornece recomendações financeiras dinâmicas.
-- 📝 **CRUD Completo de Transações:** Criação, listagem parametrizada, atualização e remoção física com modal de confirmação.
-- 🔍 **Filtros e Busca em Tempo Real:** Filtragem instantânea por texto de descrição, tipo de operação (receitas/despesas) e categorias.
-- 📥 **Exportação de Dados:** Download de relatórios completos em formato **CSV** (compatível com Excel) e **JSON**.
-- 📊 **Gráfico Analítico Interativo:** Gráfico proporcional por categorias com alternância de abas (*Geral*, *Despesas* e *Receitas*), exibindo percentuais e valores formatados.
-- 💬 **Sistema Cyber Toasts:** Notificações flutuantes não-bloqueantes com efeitos de luz neon e feedback visual imediato.
+### 1. Experiência de Teste Imediato (Vercel Test Mode)
+* 🧪 **Modo Convidado 1-Click:** Botão *"Testar Agora (Modo Convidado)"* na tela de login que gera automaticamente uma sessão isolada pré-povoada com transações, metas e orçamentos realistas. Permite testar criação, edição, filtros e simulações sem preencher cadastros.
+* 🧹 **Auto-Cleanup / Vercel Cron:** Rotina interna (`/api/cron/cleanup-demo`) configurada no `vercel.json` para expurgar automaticamente contas de demonstração após 4 horas, mantendo o banco de dados leve.
+
+### 2. Segurança & Infraestrutura
+* 🔒 **Cookies HTTP-Only com SameSite=Lax e Secure:** Proteção total contra roubo de tokens via XSS.
+* 🛡️ **Rate Limiting (SlowAPI):** Limite de requisições por IP protegendo endpoints sensíveis contra abusos e ataques de força bruta.
+* 🌐 **CORS Dinâmico Rígido:** Aceita dinamicamente domínios autorizados da Vercel (`*.vercel.app`) e ambientes de desenvolvimento local.
+* 🛡️ **Sanitização XSS:** Escapamento e validação estrita em todas as entradas no frontend e schemas Pydantic V2 no backend.
+
+### 3. Alta Performance & Serverless
+* ⚡ **Consultas Agregadas em SQL:** Métricas e balanços (`SUM`, `COUNT`, `AVG`) calculados diretamente no PostgreSQL, sem carregar listas pesadas na memória da função serverless.
+* 📄 **Paginação Serverless:** Navegação paginada na API e no frontend com controle de limite por página e navegação rápida.
+* 🔌 **Conexão Otimizada com Neon Pooler:** Gerenciamento seguro de conexões com fechamento imediato para evitar esgotamento de conexões ativas.
+
+### 4. Gestão Financeira Completa
+* 🎯 **Orçamentos Mensais por Categoria:** Defina tetos de gastos (ex: Alimentação R$ 1.000) e acompanhe barras visuais de progresso (verde, amarelo e vermelho).
+* 🏆 **Metas Financeiras (Savings Goals):** Crie objetivos (ex: "Fundo de Emergência", "Viagem"), acompanhe o percentual atingido e faça aportes rápidos.
+* 🔮 **Previsão Inteligente & Simulador ("E se..."):** Projeção de saldo para 30 dias com simulador interativo de corte de gastos em tempo real.
+* 💵 **Suporte Multi-Moeda:** Alterne instantaneamente entre `BRL (R$)`, `USD ($)` e `EUR (€)`.
+* 📥 **Exportação de Dados:** Download de relatórios em formatos **CSV** (Excel UTF-8-BOM) e **JSON**.
+
+### 5. UI/UX Avançada
+* 🎨 **Alternância de Tema:** Escolha entre a estética futurista **Cyberpunk Neon Glass** e o modo **Clean Minimal**.
+* ⌨️ **Atalhos de Teclado:** Tecla `[N]` para nova movimentação, `[F]` para focar busca e `[ESC]` para fechar modais.
+* 💬 **Cyber Toasts:** Notificações flutuantes com feedback visual em tempo real.
 
 ---
 
@@ -34,161 +55,110 @@ O **FinanceTracker** é uma aplicação web full-stack de controle financeiro pe
 
 ```mermaid
 graph TD
-    A[Front-end SPA HTML5/JS/CSS] -->|HTTP REST / JWT Bearer| B[FastAPI Back-end Core]
-    B -->|Lifespan / DDL Automático| C[models.py]
-    B -->|Validação de Schemas| D[Pydantic V2 DTOs]
-    B -->|Router /api/auth| E[Autenticação & JWT]
-    B -->|Router /api/transactions| F[CRUD, Filtros & Previsão 30d]
-    E & F -->|Conexão Segura Context Manager| G[(PostgreSQL Database)]
+    A[Front-end SPA HTML5/JS/CSS] -->|HTTP REST + Cookies HTTP-Only| B[FastAPI Serverless /api/index.py]
+    B -->|SlowAPI| R[Rate Limiting Middleware]
+    R -->|Pydantic V2| S[Validação de DTOs]
+    S --> C[Router Auth: Login / Registro / Demo]
+    S --> D[Router Transactions: CRUD & Paginação]
+    S --> E[Router Budgets: Tetos por Categoria]
+    S --> F[Router Goals: Metas de Economia]
+    S --> G[Router Cron: Limpeza Automática]
+    C & D & E & F & G -->|psycopg2 Context Manager| H[(PostgreSQL Neon Cloud)]
 ```
 
 ---
 
-## 📂 Estrutura de Diretórios
+## 📂 Estrutura do Projeto
 
 ```
 finance-tracker/
+├── api/
+│   └── index.py                 # Entrypoint serverless para Vercel
 ├── backend/
 │   ├── routers/
-│   │   ├── auth.py              # Endpoints de cadastro, login e /me (JWT)
-│   │   └── transactions.py      # Endpoints CRUD, filtros, export e resumo 30d
+│   │   ├── auth.py              # Login, registro, /me, /demo e cookies HTTP-Only
+│   │   ├── transactions.py      # CRUD, paginação, resumo agregado e export
+│   │   ├── budgets.py           # Tetos mensais por categoria
+│   │   ├── goals.py             # Metas financeiras e aportes
+│   │   └── cron.py              # Rotina de limpeza agendada
 │   ├── tests/
-│   │   ├── conftest.py          # Fixtures e cliente de testes pytest
-│   │   ├── test_auth.py         # Testes de autenticação e health check
-│   │   └── test_transactions.py # Testes de ciclo de vida e projeção
-│   ├── database.py              # Context manager get_db_cursor e pooling
-│   ├── models.py                # DDL das tabelas e índices relacionais
+│   │   ├── conftest.py          # Fixtures do pytest
+│   │   ├── test_auth.py         # Testes de autenticação e modo demo
+│   │   ├── test_transactions.py # Testes de transações e paginação
+│   │   └── test_features.py     # Testes de orçamentos, metas e cron
+│   ├── database.py              # Gerenciador de conexões otimizado para Serverless
+│   ├── models.py                # DDL relacional (users, transactions, budgets, goals)
 │   ├── schemas.py               # Contratos e validações Pydantic V2
-│   ├── main.py                  # Inicialização do FastAPI com lifespan e CORS
-│   ├── requirements.txt         # Dependências do backend
-│   └── Dockerfile               # Imagem Docker do backend
+│   ├── main.py                  # Inicialização do FastAPI com rate limiting e CORS
+│   └── requirements.txt         # Dependências do backend
 ├── frontend/
 │   ├── assets/
 │   │   ├── css/
-│   │   │   └── style.css        # Design System Cyberpunk Neon Glass 2.0
+│   │   │   └── style.css        # Design System (Cyberpunk Neon + Clean Minimal)
 │   │   └── js/
-│   │       ├── app.js           # Lógica do dashboard, gráficos, modais e filtros
-│   │       └── auth.js          # Fluxo de login, registro e tokens
-│   ├── index.html               # Dashboard principal
-│   ├── login.html               # Tela de acesso
+│   │       ├── app.js           # Lógica do painel, filtros, metas, orçamentos, simulação
+│   │       └── auth.js          # Fluxo de login, registro e botão Demo 1-Click
+│   ├── index.html               # Dashboard completo
+│   ├── login.html               # Tela de acesso com botão Modo Convidado
 │   └── register.html            # Tela de criação de conta
-├── docs/                        # Documentação técnica de arquitetura e UI
-├── docker-compose.yml           # Orquestração do PostgreSQL e Backend
-└── README.md                    # Este arquivo
+├── vercel.json                  # Roteamento e Cron Jobs para Vercel
+├── requirements.txt             # Dependências na raiz para detecção da Vercel
+└── README.md                    # Documentação do projeto
 ```
 
 ---
 
-## 🔌 Especificação da API REST
+## ⚡ Como Fazer Deploy na Vercel (Guia Passo a Passo)
 
-### Autenticação (`/api`)
-| Método | Endpoint | Descrição |
-|---|---|---|
-| `POST` | `/api/register` | Cria novo utilizador com senha Bcrypt. |
-| `POST` | `/api/login` | Valida credenciais e retorna Token JWT. |
-| `GET` | `/api/me` | Retorna o perfil do utilizador autenticado (Bearer). |
-
-### Transações & Análises (`/api`)
-| Método | Endpoint | Descrição |
-|---|---|---|
-| `POST` | `/api/transactions` | Registra nova receita ou despesa. |
-| `GET` | `/api/transactions/{user_id}` | Lista transações com filtros (`type`, `category`, `search`, `limit`). |
-| `GET` | `/api/transactions/{user_id}/summary` | Retorna balanço, métricas por categoria e **Previsão Inteligente 30d**. |
-| `PUT` | `/api/transactions/{transaction_id}` | Atualiza uma movimentação existente. |
-| `DELETE` | `/api/transactions/{transaction_id}` | Remove uma movimentação física. |
-| `GET` | `/api/transactions/{user_id}/export?format=csv\|json` | Exporta o histórico para arquivo CSV ou JSON. |
-
----
-
-## ⚡ Como Executar o Projeto
-
-### Opção 1: Deploy na Nuvem (Vercel + Neon/Supabase) 🌐
-
-O repositório já está 100% configurado para a Vercel com Serverless Python (`/api`) e Front-end estático integrado via `vercel.json`.
-
-1. **Obter um Banco PostgreSQL Gratuito na Nuvem:**
-   - Crie uma conta gratuita no [Neon.tech](https://neon.tech) ou [Supabase](https://supabase.com).
-   - Copie a string de conexão (`DATABASE_URL`), ex:
+1. **Obter uma conta gratuita no [Neon.tech](https://neon.tech):**
+   - Crie um projeto no Neon e copie a string de conexão:
      `postgresql://usuario:senha@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require`
 
-2. **Fazer Deploy na Vercel:**
-   - Suba este repositório para o seu **GitHub**.
-   - No painel da [Vercel](https://vercel.com), clique em **"Add New Project"** e selecione o repositório.
-   - Na seção **Environment Variables**, adicione:
-     - `DATABASE_URL`: `sua_url_do_neon_ou_supabase`
-     - `JWT_SECRET`: `uma_chave_secreta_longa_e_segura`
-   - Clique em **"Deploy"**.
+2. **Subir para o GitHub:**
+   ```bash
+   git add .
+   git commit -m "feat: evolucao completa para Vercel com modo demo e seguranca"
+   git push origin main
+   ```
 
-Pronto! As tabelas do banco serão criadas automaticamente na primeira inicialização e a aplicação estará no ar no seu domínio `https://seu-projeto.vercel.app`!
+3. **Importar na Vercel ([vercel.com](https://vercel.com)):**
+   - Clique em **"Add New Project"** e selecione este repositório.
+   - Em **Environment Variables**, adicione:
+     - `DATABASE_URL`: String de conexão do Neon.
+     - `JWT_SECRET`: Uma chave segura (ex: `finance-tracker-cyberpunk-secret-2026`).
+     - `CRON_SECRET`: *(Opcional)* Segredo para autenticar as chamadas de cron.
+   - Clique em **Deploy**.
 
----
-
-### Opção 2: Via Docker Compose (Local)
-
-Com o Docker instalado, execute na raiz do projeto:
-
-```bash
-docker compose up --build
-```
-
-- A API estará disponível em `http://localhost:8000` (documentação Swagger em `/docs`).
-- O PostgreSQL rodará na porta `5432`.
-- Abra os arquivos da pasta `frontend/index.html` em seu navegador ou sirva via Live Server / Nginx.
+4. **Pronto para Usar:**
+   - Acesse a URL gerada pela Vercel e clique em **"🧪 Testar Agora (Modo Convidado)"** para experimentar imediatamente!
 
 ---
 
-### Opção 3: Execução Local (Python Manual)
+## 🧪 Testes Automatizados (Pytest)
 
-#### 1. Configurar o Banco de Dados
-Certifique-se de que o serviço do PostgreSQL está ativo e crie um banco chamado `finance_tracker`.
-
-Configure o ficheiro `backend/.env`:
-```env
-DATABASE_URL=postgresql://seu_usuario:sua_senha@localhost:5432/finance_tracker
-JWT_SECRET=sua_chave_secreta_jwt_aqui
-```
-
-#### 2. Instalar Dependências e Iniciar o Backend
-```bash
-# Navegue até o diretório do backend
-cd backend
-
-# Ative o ambiente virtual
-.\venv\Scripts\Activate.ps1    # No Windows PowerShell
-# source venv/bin/activate     # No Linux/macOS
-
-# Instale as dependências
-pip install -r requirements.txt
-
-# Inicie o servidor FastAPI
-uvicorn main:app --reload --port 8000
-```
-
-#### 3. Abrir o Front-end
-Basta abrir o arquivo `frontend/login.html` no seu navegador favorito ou servir com uma extensão como *Live Server*.
-
----
-
-## 🧪 Executando os Testes Automatizados
-
-O projeto conta com uma suíte completa de testes de integração com `pytest`:
+Execute a suíte completa de testes de integração com o comando:
 
 ```bash
 pytest -v backend/tests
 ```
 
-Saída esperada:
-```
-backend/tests/test_auth.py::test_health_check PASSED
-backend/tests/test_auth.py::test_register_and_login_success PASSED
-backend/tests/test_auth.py::test_register_duplicate_email PASSED
-backend/tests/test_auth.py::test_login_invalid_credentials PASSED
-backend/tests/test_transactions.py::test_transaction_lifecycle PASSED
-================ 5 passed in 4.30s ================
+**Resultado:**
+```text
+backend/tests/test_auth.py::test_health_check PASSED               [ 10%]
+backend/tests/test_auth.py::test_register_and_login_success PASSED [ 20%]
+backend/tests/test_auth.py::test_demo_mode_session PASSED          [ 30%]
+backend/tests/test_auth.py::test_logout_clears_session PASSED      [ 40%]
+backend/tests/test_auth.py::test_register_duplicate_email PASSED   [ 50%]
+backend/tests/test_auth.py::test_login_invalid_credentials PASSED  [ 60%]
+backend/tests/test_features.py::test_budgets_lifecycle PASSED      [ 70%]
+backend/tests/test_features.py::test_goals_lifecycle PASSED        [ 80%]
+backend/tests/test_features.py::test_cron_demo_cleanup PASSED      [ 90%]
+backend/tests/test_transactions.py::test_transaction_lifecycle PASSED [100%]
+====================== 10 passed in 1.13s ======================
 ```
 
 ---
 
 ## 📜 Licença
 
-Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para mais informações.
+Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.

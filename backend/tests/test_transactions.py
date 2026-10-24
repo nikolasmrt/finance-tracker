@@ -29,11 +29,15 @@ def test_transaction_lifecycle(client, auth_headers):
     assert res_exp.status_code == 201
     expense_tx = res_exp.json()["transaction"]
 
-    # 3. Listagem e Filtros
-    list_res = client.get(f"/api/transactions/{user_id}", headers=headers)
+    # 3. Listagem com Paginação e Filtros
+    list_res = client.get(f"/api/transactions/{user_id}?page=1&limit=5", headers=headers)
     assert list_res.status_code == 200
-    transactions = list_res.json()["transactions"]
-    assert len(transactions) >= 2
+    data = list_res.json()
+    assert "transactions" in data
+    assert "pagination" in data
+    assert data["pagination"]["page"] == 1
+    assert data["pagination"]["limit"] == 5
+    assert data["pagination"]["total_records"] >= 2
 
     # Filtro por tipo 'expense'
     filter_exp = client.get(f"/api/transactions/{user_id}?type=expense", headers=headers)

@@ -6,6 +6,7 @@ const API_URL = (window.location.protocol === "file:" || window.location.port ==
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("login-form");
     const registerForm = document.getElementById("register-form");
+    const demoBtn = document.getElementById("btn-demo-login");
 
     if (loginForm) {
         loginForm.addEventListener("submit", async (e) => {
@@ -18,6 +19,12 @@ document.addEventListener("DOMContentLoaded", () => {
         registerForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             await realizarRegisto();
+        });
+    }
+
+    if (demoBtn) {
+        demoBtn.addEventListener("click", async () => {
+            await iniciarModoDemo();
         });
     }
 });
@@ -33,7 +40,7 @@ function showAuthToast(message, type = "info") {
 
     const toast = document.createElement("div");
     toast.className = `cyber-toast toast-${type}`;
-    const icon = type === "success" ? "✓" : (type === "error" ? "✕" : "ℹ");
+    const icon = type === "success" ? "✓" : (type === "error" ? "✕" : (type === "warning" ? "⚠" : "ℹ"));
 
     toast.innerHTML = `
         <span class="toast-icon">${icon}</span>
@@ -45,6 +52,51 @@ function showAuthToast(message, type = "info") {
         toast.classList.add("fade-out");
         setTimeout(() => toast.remove(), 400);
     }, 3500);
+}
+
+async function iniciarModoDemo() {
+    const btnDemo = document.getElementById("btn-demo-login");
+    const originalText = btnDemo ? btnDemo.innerText : "🧪 Testar Agora (Modo Convidado)";
+    if (btnDemo) {
+        btnDemo.disabled = true;
+        btnDemo.innerText = "⚡ Gerando ambiente de demonstração...";
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/demo`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include" // Permite gravação segura do cookie HTTP-Only
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Erro ao iniciar o Modo Convidado.");
+        }
+
+        // Armazena identificadores de sessão no storage
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("userName", data.user.name);
+        localStorage.setItem("userEmail", data.user.email);
+        localStorage.setItem("isDemo", "true");
+        if (data.access_token) {
+            localStorage.setItem("accessToken", data.access_token);
+        }
+
+        showAuthToast("✨ Modo Convidado ativado! Redirecionando para o Dashboard...", "success");
+
+        setTimeout(() => {
+            window.location.href = "index.html";
+        }, 600);
+    } catch (error) {
+        console.error("Falha no modo demo:", error);
+        showAuthToast(error.message, "error");
+        if (btnDemo) {
+            btnDemo.disabled = false;
+            btnDemo.innerText = originalText;
+        }
+    }
 }
 
 async function realizarLogin() {
@@ -62,6 +114,7 @@ async function realizarLogin() {
         const response = await fetch(`${API_URL}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include", // Envia e armazena cookies HTTP-Only
             body: JSON.stringify({ email, password })
         });
 
@@ -71,19 +124,20 @@ async function realizarLogin() {
             throw new Error(data.detail || "Erro ao efetuar login. Verifique as credenciais.");
         }
 
-        // Armazena dados de sessão e Token JWT
+        // Armazena dados de sessão
         if (data.access_token) {
             localStorage.setItem("accessToken", data.access_token);
         }
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("userName", data.user.name);
         localStorage.setItem("userEmail", data.user.email);
+        localStorage.setItem("isDemo", data.user.is_demo ? "true" : "false");
 
         showAuthToast("Login efetuado com sucesso! Redirecionando...", "success");
 
         setTimeout(() => {
             window.location.href = "index.html";
-        }, 700);
+        }, 600);
     } catch (error) {
         showAuthToast(error.message, "error");
     } finally {
@@ -119,6 +173,7 @@ async function realizarRegisto() {
         const response = await fetch(`${API_URL}/register`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ name, email, password })
         });
 
@@ -128,10 +183,10 @@ async function realizarRegisto() {
             throw new Error(data.detail || "Erro ao criar conta.");
         }
 
-        showAuthToast("Conta criada com sucesso! Redirecionando para login...", "success");
+        showAuthToast("Conta criada com sucesso! Faça login para aceder.", "success");
         setTimeout(() => {
             window.location.href = "login.html";
-        }, 1200);
+        }, 1000);
     } catch (error) {
         showAuthToast(error.message, "error");
     } finally {

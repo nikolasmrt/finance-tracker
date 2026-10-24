@@ -3,79 +3,245 @@ const API_URL = (window.location.protocol === "file:" || window.location.port ==
     ? "http://127.0.0.1:8000/api"
     : "/api";
 
-// --- Autenticação & Sessão ---
-const token = localStorage.getItem("accessToken");
-const storedUserId = localStorage.getItem("userId");
-const currentUserName = localStorage.getItem("userName") || "Utilizador Conectado";
-
-// Redireciona para o login se o utilizador não estiver autenticado
-if (!storedUserId && !token) {
-    window.location.href = "login.html";
-}
-
-const currentUserId = storedUserId ? parseInt(storedUserId) : 1;
-
-// Estado global de dados e filtros
+// --- Estado Global da Aplicação ---
 let state = {
-    allTransactions: [],
-    summary: null,
+    userId: localStorage.getItem("userId") ? parseInt(localStorage.getItem("userId")) : null,
+    userName: localStorage.getItem("userName") || "Utilizador",
+    userEmail: localStorage.getItem("userEmail") || "",
+    isDemo: localStorage.getItem("isDemo") === "true",
+    currency: localStorage.getItem("preferredCurrency") || "BRL",
+    theme: localStorage.getItem("theme") || "cyberpunk",
+    
+    // Transações & Paginação
+    transactions: [],
+    pagination: {
+        page: 1,
+        limit: 8,
+        total_records: 0,
+        total_pages: 1
+    },
     filters: {
         search: "",
         type: "",
         category: ""
     },
+
+    // Resumos, Orçamentos e Metas
+    summary: null,
+    budgets: [],
+    goals: [],
     chartMode: "all",
-    pendingDeleteId: null
+    pendingDeleteTxId: null
 };
 
-// Headers com Bearer Token caso disponível
-function getAuthHeaders(includeContentType = true) {
-    const headers = {};
-    if (includeContentType) headers["Content-Type"] = "application/json";
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return headers;
+// --- Formatação de Moeda Multi-Moeda ---
+function formatCurrency(val) {
+    const num = Number(val) || 0;
+    const map = {
+        BRL: { locale: "pt-BR", currency: "BRL" },
+        USD: { locale: "en-US", currency: "USD" },
+        EUR: { locale: "de-DE", currency: "EUR" }
+    };
+    const cfg = map[state.currency] || map.BRL;
+    return num.toLocaleString(cfg.locale, { style: "currency", currency: cfg.currency });
 }
 
-// --- Inicialização ---
-document.addEventListener("DOMContentLoaded", () => {
-    console.log("FinanceTracker v2.0 Front-end inicializado com sucesso.");
+// Headers padrão com credenciais seguras
+function getFetchOptions(method = "GET", body = null) {
+    const options = {
+        method,
+        credentials: "include" // Transmite e armazena os cookies HTTP-Only automaticamente
+    };
 
-    // Nome na barra superior
-    const userDisplay = document.getElementById("user-display");
-    if (userDisplay) userDisplay.innerText = currentUserName;
+    const headers = {};
+    const localToken = localStorage.getItem("accessToken");
+    if (localToken) {
+        headers["Authorization"] = `Bearer ${localToken}`;
+    }
+
+    if (body) {
+        headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
+    }
+    options.headers = headers;
+    return options;
+}
+
+// --- Inicialização da Aplicação ---
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log("FinanceTracker v2.1 Front-end inicializado.");
+
+    // Aplica tema e moeda salvos
+    aplicarTema(state.theme);
+    inicializarMoeda();
+
+    // Valida sessão via /api/me (verifica Cookie HTTP-Only ou Token)
+    const autenticado = await validarSessao();
+    if (!autenticado) return;
+
+    // Atualiza cabeçalho com nome e modo demo
+    atualizarPerfilHeader();
 
     // Data padrão de hoje no formulário
     const dateInput = document.getElementById("transaction_date");
-    if (dateInput) {
-        dateInput.value = new Date().toISOString().split("T")[0];
-    }
+    if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
 
-    // Eventos
+    // Registra todos os eventos de interface
     configurarLogout();
-    configurarFormularioCadastro();
-    configurarFiltros();
+    configurarTema();
+    configurarMoeda();
+    configurarAtalhosTeclado();
+    configurarFormularioTransacao();
+    configurarFiltrosEPaginacao();
     configurarExportacao();
+    configurarSimuladorCenarios();
     configurarModais();
     configurarAbasGrafico();
 
-    // Carregamento de dados
-    carregarDados();
+    // Carrega dados completos
+    await carregarTodosOsDados();
 });
 
-// --- Sistema de Notificações Cyberpunk Toast ---
+// --- Validação de Sessão & Guarda de Rota ---
+async function validarSessao() {
+    try {
+        const response = await fetch(`${API_URL}/me`, getFetchOptions("GET"));
+        if (!response.ok) throw new Error("Não autenticado");
+        const userData = await response.json();
+
+        state.userId = userData.id;
+        state.userName = userData.name;
+        state.userEmail = userData.email;
+        state.isDemo = Boolean(userData.is_demo);
+
+        localStorage.setItem("userId", userData.id);
+        localStorage.setItem("userName", userData.name);
+        localStorage.setItem("userEmail", userData.email);
+        localStorage.setItem("isDemo", state.isDemo ? "true" : "false");
+
+        return true;
+    } catch (error) {
+        console.warn("Sessão não identificada. Redirecionando para login.");
+        localStorage.clear();
+        window.location.href = "login.html";
+        return false;
+    }
+}
+
+function atualizarPerfilHeader() {
+    const userDisplay = document.getElementById("user-display");
+    const demoBadge = document.getElementById("demo-badge-indicator");
+    if (userDisplay) userDisplay.innerText = state.userName;
+
+    if (demoBadge) {
+        if (state.isDemo) {
+            demoBadge.classList.remove("hidden");
+        } else {
+            demoBadge.classList.add("hidden");
+        }
+    }
+}
+
+// --- Alternância de Tema (Cyberpunk vs Clean) ---
+function aplicarTema(theme) {
+    state.theme = theme;
+    localStorage.setItem("theme", theme);
+
+    const themeLabel = document.getElementById("theme-label");
+    const themeIcon = document.getElementById("theme-icon");
+
+    if (theme === "clean") {
+        document.body.setAttribute("data-theme", "clean");
+        if (themeLabel) themeLabel.innerText = "Clean Dark";
+        if (themeIcon) themeIcon.innerText = "🌙";
+    } else {
+        document.body.removeAttribute("data-theme");
+        if (themeLabel) themeLabel.innerText = "Cyberpunk";
+        if (themeIcon) themeIcon.innerText = "⚡";
+    }
+}
+
+function configurarTema() {
+    const btnTheme = document.getElementById("theme-toggle-btn");
+    if (btnTheme) {
+        btnTheme.addEventListener("click", () => {
+            const next = state.theme === "clean" ? "cyberpunk" : "clean";
+            aplicarTema(next);
+            showCyberToast(`Tema alterado para ${next === 'clean' ? 'Clean Minimal' : 'Cyberpunk Neon'}!`, "info");
+        });
+    }
+}
+
+// --- Configuração Multi-Moeda ---
+function inicializarMoeda() {
+    const select = document.getElementById("currency-select");
+    if (select) {
+        select.value = state.currency;
+    }
+}
+
+function configurarMoeda() {
+    const select = document.getElementById("currency-select");
+    if (select) {
+        select.addEventListener("change", (e) => {
+            state.currency = e.target.value;
+            localStorage.setItem("preferredCurrency", state.currency);
+            showCyberToast(`Moeda alterada para ${state.currency}`, "info");
+
+            // Re-renderiza todos os componentes monetários
+            if (state.summary) {
+                renderizarHUD(state.summary);
+                renderizarPrevisaoInteligente(state.summary.forecast);
+                atualizarSimuladorCenarios();
+            }
+            renderizarListaTransacoes(state.transactions);
+            renderizarOrcamentos(state.budgets);
+            renderizarMetas(state.goals);
+            renderizarGraficoColunas();
+        });
+    }
+}
+
+// --- Atalhos de Teclado Globais ---
+function configurarAtalhosTeclado() {
+    window.addEventListener("keydown", (e) => {
+        // Ignora se estiver digitando em campo de texto a menos que seja ESC
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+        const isInput = activeTag === "input" || activeTag === "textarea" || activeTag === "select";
+
+        if (e.key === "Escape") {
+            fecharTodosModais();
+            return;
+        }
+
+        if (isInput) return;
+
+        if (e.key === "n" || e.key === "N") {
+            e.preventDefault();
+            const descInput = document.getElementById("description");
+            if (descInput) {
+                descInput.focus();
+                descInput.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        } else if (e.key === "f" || e.key === "F" || e.key === "/") {
+            e.preventDefault();
+            const searchInput = document.getElementById("filter-search");
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+    });
+}
+
+// --- Notificações Cyberpunk Toast ---
 function showCyberToast(message, type = "info") {
     const container = document.getElementById("toast-container");
     if (!container) return;
 
     const toast = document.createElement("div");
     toast.className = `cyber-toast toast-${type}`;
-
-    const icons = {
-        success: "✓",
-        error: "✕",
-        warning: "⚠",
-        info: "ℹ"
-    };
+    const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
 
     toast.innerHTML = `
         <span class="toast-icon">${icons[type] || "ℹ"}</span>
@@ -83,7 +249,6 @@ function showCyberToast(message, type = "info") {
     `;
 
     container.appendChild(toast);
-
     setTimeout(() => {
         toast.classList.add("fade-out");
         setTimeout(() => toast.remove(), 400);
@@ -94,64 +259,151 @@ function showCyberToast(message, type = "info") {
 function configurarLogout() {
     const logoutBtn = document.getElementById("logout-btn");
     if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
+        logoutBtn.addEventListener("click", async () => {
+            try {
+                await fetch(`${API_URL}/logout`, getFetchOptions("POST"));
+            } catch (e) {
+                console.error(e);
+            }
             localStorage.clear();
             showCyberToast("Sessão encerrada com sucesso.", "info");
-            setTimeout(() => {
-                window.location.href = "login.html";
-            }, 600);
+            setTimeout(() => window.location.href = "login.html", 400);
         });
     }
 }
 
-// --- Carregamento Centralizado de Dados ---
-async function carregarDados() {
+// --- Carregamento Unificado de Dados ---
+async function carregarTodosOsDados() {
     await Promise.all([
         buscarTransacoes(),
-        buscarResumoEPrevisao()
+        buscarResumoEPrevisao(),
+        carregarOrcamentos(),
+        carregarMetas()
     ]);
 }
 
+// --- Busca de Transações com Paginação e Filtros ---
 async function buscarTransacoes() {
     try {
-        const queryParams = new URLSearchParams();
-        if (state.filters.type) queryParams.append("type", state.filters.type);
-        if (state.filters.category) queryParams.append("category", state.filters.category);
-        if (state.filters.search) queryParams.append("search", state.filters.search);
+        const q = new URLSearchParams();
+        q.append("page", state.pagination.page);
+        q.append("limit", state.pagination.limit);
+        if (state.filters.type) q.append("type", state.filters.type);
+        if (state.filters.category) q.append("category", state.filters.category);
+        if (state.filters.search) q.append("search", state.filters.search);
 
-        const url = `${API_URL}/transactions/${currentUserId}?${queryParams.toString()}`;
-        const response = await fetch(url, { headers: getAuthHeaders(false) });
+        const res = await fetch(`${API_URL}/transactions/${state.userId}?${q.toString()}`, getFetchOptions("GET"));
+        if (!res.ok) throw new Error("Erro ao buscar transações");
 
-        if (!response.ok) throw new Error("Falha ao carregar transações.");
+        const data = await res.json();
+        state.transactions = data.transactions || [];
+        state.pagination = data.pagination || { page: 1, limit: 8, total_records: 0, total_pages: 1 };
 
-        const data = await response.json();
-        state.allTransactions = data.transactions || [];
-        renderizarListaTransacoes(state.allTransactions);
-    } catch (error) {
-        console.error("Erro ao carregar transações:", error);
-        showCyberToast("Não foi possível carregar o histórico de transações.", "error");
+        renderizarListaTransacoes(state.transactions);
+        renderizarBarraPaginacao();
+    } catch (err) {
+        console.error("Falha ao buscar transações:", err);
     }
 }
 
+function renderizarBarraPaginacao() {
+    const p = state.pagination;
+    const btnPrev = document.getElementById("btn-prev-page");
+    const btnNext = document.getElementById("btn-next-page");
+    const indicator = document.getElementById("page-indicator");
+
+    if (btnPrev) btnPrev.disabled = p.page <= 1;
+    if (btnNext) btnNext.disabled = p.page >= p.total_pages;
+
+    if (indicator) {
+        indicator.innerText = `Página ${p.page} de ${p.total_pages} (${p.total_records} registro${p.total_records === 1 ? '' : 's'})`;
+    }
+}
+
+function configurarFiltrosEPaginacao() {
+    const inputSearch = document.getElementById("filter-search");
+    const selectType = document.getElementById("filter-type");
+    const selectCategory = document.getElementById("filter-category");
+    const btnClear = document.getElementById("btn-clear-filters");
+    const btnPrev = document.getElementById("btn-prev-page");
+    const btnNext = document.getElementById("btn-next-page");
+
+    let debounceTimer = null;
+    if (inputSearch) {
+        inputSearch.addEventListener("input", (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                state.filters.search = e.target.value.trim();
+                state.pagination.page = 1; // Reseta para primeira página
+                buscarTransacoes();
+            }, 250);
+        });
+    }
+
+    if (selectType) {
+        selectType.addEventListener("change", (e) => {
+            state.filters.type = e.target.value;
+            state.pagination.page = 1;
+            buscarTransacoes();
+        });
+    }
+
+    if (selectCategory) {
+        selectCategory.addEventListener("change", (e) => {
+            state.filters.category = e.target.value;
+            state.pagination.page = 1;
+            buscarTransacoes();
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener("click", () => {
+            state.filters = { search: "", type: "", category: "" };
+            if (inputSearch) inputSearch.value = "";
+            if (selectType) selectType.value = "";
+            if (selectCategory) selectCategory.value = "";
+            state.pagination.page = 1;
+            buscarTransacoes();
+            showCyberToast("Filtros limpos.", "info");
+        });
+    }
+
+    if (btnPrev) {
+        btnPrev.addEventListener("click", () => {
+            if (state.pagination.page > 1) {
+                state.pagination.page -= 1;
+                buscarTransacoes();
+            }
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener("click", () => {
+            if (state.pagination.page < state.pagination.total_pages) {
+                state.pagination.page += 1;
+                buscarTransacoes();
+            }
+        });
+    }
+}
+
+// --- Resumo & Previsão Inteligente ---
 async function buscarResumoEPrevisao() {
     try {
-        const response = await fetch(`${API_URL}/transactions/${currentUserId}/summary`, {
-            headers: getAuthHeaders(false)
-        });
+        const res = await fetch(`${API_URL}/transactions/${state.userId}/summary`, getFetchOptions("GET"));
+        if (!res.ok) throw new Error("Erro ao buscar resumo");
 
-        if (!response.ok) throw new Error("Falha ao obter resumo e projeção.");
-
-        const summary = await response.json();
+        const summary = await res.json();
         state.summary = summary;
         renderizarHUD(summary);
         renderizarPrevisaoInteligente(summary.forecast);
+        atualizarSimuladorCenarios();
         renderizarGraficoColunas();
-    } catch (error) {
-        console.error("Erro ao carregar resumo:", error);
+    } catch (err) {
+        console.error("Falha ao carregar resumo:", err);
     }
 }
 
-// --- Renderização do HUD e Indicadores Principais ---
 function renderizarHUD(summary) {
     const elDeposits = document.getElementById("total-deposits");
     const elExpenses = document.getElementById("total-expenses");
@@ -160,11 +412,9 @@ function renderizarHUD(summary) {
     const expensesCount = document.getElementById("expenses-count");
     const balanceStatus = document.getElementById("balance-status");
 
-    const formatMoney = (val) => Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-    if (elDeposits) elDeposits.innerText = formatMoney(summary.total_deposits);
-    if (elExpenses) elExpenses.innerText = formatMoney(summary.total_expenses);
-    if (elBalance) elBalance.innerText = formatMoney(summary.net_balance);
+    if (elDeposits) elDeposits.innerText = formatCurrency(summary.total_deposits);
+    if (elExpenses) elExpenses.innerText = formatCurrency(summary.total_expenses);
+    if (elBalance) elBalance.innerText = formatCurrency(summary.net_balance);
 
     const totalIncomeCount = summary.categories.reduce((acc, c) => acc + (c.total_income > 0 ? c.count : 0), 0);
     const totalExpenseCount = summary.categories.reduce((acc, c) => acc + (c.total_expense > 0 ? c.count : 0), 0);
@@ -186,11 +436,8 @@ function renderizarHUD(summary) {
     }
 }
 
-// --- Renderização da Previsão Inteligente (30 Dias) ---
 function renderizarPrevisaoInteligente(forecast) {
     if (!forecast) return;
-
-    const formatMoney = (val) => Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
     const elProjected = document.getElementById("forecast-projected-balance");
     const elDailyExpense = document.getElementById("forecast-daily-expense");
@@ -199,9 +446,9 @@ function renderizarPrevisaoInteligente(forecast) {
     const elAdvice = document.getElementById("forecast-message");
     const elBadge = document.getElementById("forecast-badge");
 
-    if (elProjected) elProjected.innerText = formatMoney(forecast.projected_balance_30d);
-    if (elDailyExpense) elDailyExpense.innerText = formatMoney(forecast.daily_average_expense);
-    if (elDailyIncome) elDailyIncome.innerText = formatMoney(forecast.daily_average_income);
+    if (elProjected) elProjected.innerText = formatCurrency(forecast.projected_balance_30d);
+    if (elDailyExpense) elDailyExpense.innerText = formatCurrency(forecast.daily_average_expense);
+    if (elDailyIncome) elDailyIncome.innerText = formatCurrency(forecast.daily_average_income);
     if (elSavingsRate) elSavingsRate.innerText = `${forecast.savings_rate.toFixed(1)}%`;
     if (elAdvice) elAdvice.innerText = forecast.message;
 
@@ -223,7 +470,57 @@ function renderizarPrevisaoInteligente(forecast) {
     }
 }
 
-// --- Renderização da Lista de Transações ---
+// --- Simulador de Cenários ("E se...") ---
+function configurarSimuladorCenarios() {
+    const slider = document.getElementById("sim-slider");
+    const categorySelect = document.getElementById("sim-category");
+
+    if (slider) {
+        slider.addEventListener("input", (e) => {
+            const pct = e.target.value;
+            const pctDisplay = document.getElementById("sim-pct-display");
+            if (pctDisplay) pctDisplay.innerText = `${pct}%`;
+            atualizarSimuladorCenarios();
+        });
+    }
+
+    if (categorySelect) {
+        categorySelect.addEventListener("change", () => {
+            atualizarSimuladorCenarios();
+        });
+    }
+}
+
+function atualizarSimuladorCenarios() {
+    if (!state.summary || !state.summary.forecast) return;
+
+    const slider = document.getElementById("sim-slider");
+    const categorySelect = document.getElementById("sim-category");
+    const elSavingsVal = document.getElementById("sim-savings-val");
+    const elNewBalance = document.getElementById("sim-new-balance");
+
+    const pctCut = slider ? parseFloat(slider.value) / 100 : 0.15;
+    const selectedCat = categorySelect ? categorySelect.value : "all";
+
+    // Calcula a base de despesas conforme categoria selecionada
+    let targetExpense = 0;
+    if (selectedCat === "all") {
+        targetExpense = state.summary.total_expenses;
+    } else {
+        const catItem = state.summary.categories.find(c => c.category === selectedCat);
+        targetExpense = catItem ? catItem.total_expense : 0;
+    }
+
+    // Economia estimada em 30 dias com base no corte percentual
+    const monthlyEconomy = targetExpense * pctCut;
+    const baseProjectedBalance = state.summary.forecast.projected_balance_30d;
+    const newProjectedBalance = baseProjectedBalance + monthlyEconomy;
+
+    if (elSavingsVal) elSavingsVal.innerText = `+ ${formatCurrency(monthlyEconomy)}`;
+    if (elNewBalance) elNewBalance.innerText = `Novo saldo projetado: ${formatCurrency(newProjectedBalance)}`;
+}
+
+// --- Renderização da Lista de Transações com Empty State Moderno ---
 function renderizarListaTransacoes(transactions) {
     const listaContainer = document.getElementById("transactions-list");
     if (!listaContainer) return;
@@ -232,7 +529,9 @@ function renderizarListaTransacoes(transactions) {
         listaContainer.innerHTML = `
             <div class="empty-state">
                 <span class="empty-icon">📭</span>
-                <p class="empty-msg">Nenhuma movimentação encontrada com os filtros selecionados.</p>
+                <h4>Nenhuma movimentação encontrada</h4>
+                <p class="empty-msg">Cadastre sua primeira receita ou despesa no formulário ao lado ou use o botão de atalho.</p>
+                <button type="button" class="btn-secondary" onclick="focarFormulario()">+ Criar Movimentação</button>
             </div>
         `;
         return;
@@ -240,9 +539,7 @@ function renderizarListaTransacoes(transactions) {
 
     let html = "";
     transactions.forEach(tx => {
-        const valorFormatado = Number(tx.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
         const isIncome = tx.type === "income";
-
         html += `
             <div class="transaction-item ${tx.type}" data-id="${tx.id}">
                 <div class="tx-badge-type">${isIncome ? "ENTRADA" : "SAÍDA"}</div>
@@ -256,7 +553,7 @@ function renderizarListaTransacoes(transactions) {
                 </div>
                 <div class="tx-right">
                     <div class="tx-amount ${tx.type}">
-                        ${isIncome ? "+" : "-"} ${valorFormatado}
+                        ${isIncome ? "+" : "-"} ${formatCurrency(tx.amount)}
                     </div>
                     <div class="tx-actions">
                         <button class="btn-action btn-edit" onclick="abrirModalEdicao(${tx.id})" title="Editar movimentação">✏️</button>
@@ -270,7 +567,153 @@ function renderizarListaTransacoes(transactions) {
     listaContainer.innerHTML = html;
 }
 
-// --- Renderização do Gráfico de Colunas Analítico ---
+window.focarFormulario = function() {
+    const input = document.getElementById("description");
+    if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+};
+
+// --- Orçamentos Mensais por Categoria (Budgets) ---
+async function carregarOrcamentos() {
+    try {
+        const res = await fetch(`${API_URL}/budgets/${state.userId}`, getFetchOptions("GET"));
+        if (!res.ok) throw new Error("Erro ao carregar orçamentos");
+        const budgets = await res.json();
+        state.budgets = budgets || [];
+        renderizarOrcamentos(state.budgets);
+    } catch (err) {
+        console.error("Falha ao carregar orçamentos:", err);
+    }
+}
+
+function renderizarOrcamentos(budgets) {
+    const container = document.getElementById("budgets-list");
+    if (!container) return;
+
+    if (!budgets || budgets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🎯</span>
+                <p class="empty-msg">Nenhum orçamento configurado ainda. Defina limites para categorias como Alimentação, Lazer ou Moradia.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = "";
+    budgets.forEach(b => {
+        const pctClamped = Math.min(100, b.percentage_used);
+        const statusLabel = b.status === "exceeded" ? "🚨 Estourado" : (b.status === "warning" ? "⚠️ Alerta (>80%)" : "✓ No Limite");
+
+        html += `
+            <div class="budget-card budget-status-${b.status}">
+                <div class="budget-card-header">
+                    <strong>${escapeHtml(b.category)}</strong>
+                    <div class="budget-actions">
+                        <span class="budget-badge ${b.status}">${statusLabel}</span>
+                        <button class="btn-mini-delete" onclick="removerOrcamento(${b.id})" title="Remover orçamento">✕</button>
+                    </div>
+                </div>
+                <div class="budget-progress-track">
+                    <div class="budget-progress-fill ${b.status}" style="width: ${pctClamped}%;"></div>
+                </div>
+                <div class="budget-card-footer">
+                    <span>Gasto: <strong>${formatCurrency(b.spent_this_month)}</strong></span>
+                    <span>Teto: <strong>${formatCurrency(b.monthly_limit)}</strong> (${b.percentage_used.toFixed(1)}%)</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+window.removerOrcamento = async function(id) {
+    if (!confirm("Deseja remover este teto orçamentário?")) return;
+    try {
+        const res = await fetch(`${API_URL}/budgets/${id}`, getFetchOptions("DELETE"));
+        if (!res.ok) throw new Error("Erro ao excluir orçamento");
+        showCyberToast("Orçamento removido com sucesso!", "success");
+        await carregarOrcamentos();
+    } catch (err) {
+        showCyberToast(err.message, "error");
+    }
+};
+
+// --- Metas Financeiras (Savings Goals) ---
+async function carregarMetas() {
+    try {
+        const res = await fetch(`${API_URL}/goals/${state.userId}`, getFetchOptions("GET"));
+        if (!res.ok) throw new Error("Erro ao carregar metas");
+        const goals = await res.json();
+        state.goals = goals || [];
+        renderizarMetas(state.goals);
+    } catch (err) {
+        console.error("Falha ao carregar metas:", err);
+    }
+}
+
+function renderizarMetas(goals) {
+    const container = document.getElementById("goals-list");
+    if (!container) return;
+
+    if (!goals || goals.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🏆</span>
+                <p class="empty-msg">Nenhuma meta criada ainda. Defina objetivos como Fundo de Emergência, Viagem ou Compra Importante.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = "";
+    goals.forEach(g => {
+        const isComplete = g.progress_percentage >= 100;
+        html += `
+            <div class="goal-card ${isComplete ? 'goal-complete' : ''}">
+                <div class="goal-header">
+                    <h4>${escapeHtml(g.title)}</h4>
+                    <button class="btn-mini-delete" onclick="removerMeta(${g.id})" title="Remover meta">✕</button>
+                </div>
+                <div class="goal-progress-track">
+                    <div class="goal-progress-fill" style="width: ${g.progress_percentage}%;"></div>
+                </div>
+                <div class="goal-stats">
+                    <span>${formatCurrency(g.current_amount)} de ${formatCurrency(g.target_amount)}</span>
+                    <strong class="goal-pct">${g.progress_percentage.toFixed(1)}%</strong>
+                </div>
+                ${g.target_date ? `<span class="goal-date">📅 Alvo: ${g.target_date}</span>` : ''}
+                <button class="btn-deposit-goal" onclick="abrirModalAporte(${g.id}, '${escapeHtml(g.title)}')">+ Aportar Valor</button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+window.removerMeta = async function(id) {
+    if (!confirm("Deseja remover esta meta financeira?")) return;
+    try {
+        const res = await fetch(`${API_URL}/goals/${id}`, getFetchOptions("DELETE"));
+        if (!res.ok) throw new Error("Erro ao excluir meta");
+        showCyberToast("Meta removida com sucesso!", "success");
+        await carregarMetas();
+    } catch (err) {
+        showCyberToast(err.message, "error");
+    }
+};
+
+window.abrirModalAporte = function(id, title) {
+    document.getElementById("deposit-goal-id").value = id;
+    const titleEl = document.getElementById("deposit-goal-title");
+    if (titleEl) titleEl.innerText = `Aportar na meta: ${title}`;
+    abrirModal(document.getElementById("deposit-goal-modal"));
+};
+
+// --- Gráfico de Colunas Analítico ---
 function renderizarGraficoColunas() {
     const chartContainer = document.getElementById("column-chart");
     if (!chartContainer || !state.summary) return;
@@ -281,7 +724,6 @@ function renderizarGraficoColunas() {
         return;
     }
 
-    // Filtra conforme o modo ativo da aba: "all", "expense", "income"
     let chartData = [];
     if (state.chartMode === "expense") {
         chartData = categories
@@ -292,14 +734,13 @@ function renderizarGraficoColunas() {
             .map(c => ({ category: c.category, value: c.total_income, type: "income" }))
             .filter(c => c.value > 0);
     } else {
-        // Geral: soma o volume financeiro
         chartData = categories
             .map(c => ({ category: c.category, value: c.total_expense + c.total_income, type: "both" }))
             .filter(c => c.value > 0);
     }
 
     if (chartData.length === 0) {
-        chartContainer.innerHTML = `<p class="empty-msg">Nenhum valor para o modo "${state.chartMode}".</p>`;
+        chartContainer.innerHTML = `<p class="empty-msg">Nenhum dado encontrado para a visualização selecionada.</p>`;
         return;
     }
 
@@ -310,7 +751,7 @@ function renderizarGraficoColunas() {
     chartData.forEach(d => {
         const heightPct = Math.max(8, Math.round((d.value / maxValue) * 100));
         const sharePct = ((d.value / totalVolume) * 100).toFixed(1);
-        const valFormatted = d.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        const valFormatted = formatCurrency(d.value);
 
         html += `
             <div class="chart-bar-wrapper" title="${escapeHtml(d.category)}: ${valFormatted} (${sharePct}%)">
@@ -341,7 +782,7 @@ function configurarAbasGrafico() {
 }
 
 // --- Formulário de Cadastro de Transação ---
-function configurarFormularioCadastro() {
+function configurarFormularioTransacao() {
     const form = document.getElementById("transaction-form");
     if (!form) return;
 
@@ -354,7 +795,7 @@ function configurarFormularioCadastro() {
         submitBtn.innerText = "Registrando...";
 
         const payload = {
-            user_id: currentUserId,
+            user_id: state.userId,
             type: document.getElementById("type").value,
             amount: parseFloat(document.getElementById("amount").value),
             description: document.getElementById("description").value,
@@ -363,25 +804,18 @@ function configurarFormularioCadastro() {
         };
 
         try {
-            const response = await fetch(`${API_URL}/transactions`, {
-                method: "POST",
-                headers: getAuthHeaders(true),
-                body: JSON.stringify(payload)
-            });
+            const res = await fetch(`${API_URL}/transactions`, getFetchOptions("POST", payload));
+            const data = await res.json();
 
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.detail || "Erro ao criar transação.");
-            }
+            if (!res.ok) throw new Error(data.detail || "Erro ao registrar transação.");
 
             showCyberToast("Movimentação registrada com sucesso!", "success");
             form.reset();
             document.getElementById("transaction_date").value = new Date().toISOString().split("T")[0];
 
-            await carregarDados();
-        } catch (error) {
-            console.error("Erro:", error);
-            showCyberToast(error.message, "error");
+            await carregarTodosOsDados();
+        } catch (err) {
+            showCyberToast(err.message, "error");
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = originalText;
@@ -389,52 +823,7 @@ function configurarFormularioCadastro() {
     });
 }
 
-// --- Filtros em Tempo Real ---
-function configurarFiltros() {
-    const inputSearch = document.getElementById("filter-search");
-    const selectType = document.getElementById("filter-type");
-    const selectCategory = document.getElementById("filter-category");
-    const btnClear = document.getElementById("btn-clear-filters");
-
-    let debounceTimer = null;
-
-    if (inputSearch) {
-        inputSearch.addEventListener("input", (e) => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                state.filters.search = e.target.value.trim();
-                buscarTransacoes();
-            }, 250);
-        });
-    }
-
-    if (selectType) {
-        selectType.addEventListener("change", (e) => {
-            state.filters.type = e.target.value;
-            buscarTransacoes();
-        });
-    }
-
-    if (selectCategory) {
-        selectCategory.addEventListener("change", (e) => {
-            state.filters.category = e.target.value;
-            buscarTransacoes();
-        });
-    }
-
-    if (btnClear) {
-        btnClear.addEventListener("click", () => {
-            state.filters = { search: "", type: "", category: "" };
-            if (inputSearch) inputSearch.value = "";
-            if (selectType) selectType.value = "";
-            if (selectCategory) selectCategory.value = "";
-            buscarTransacoes();
-            showCyberToast("Filtros limpos.", "info");
-        });
-    }
-}
-
-// --- Exportação de Dados (CSV e JSON) ---
+// --- Exportação de Dados (CSV / JSON) ---
 function configurarExportacao() {
     const btnCsv = document.getElementById("btn-export-csv");
     const btnJson = document.getElementById("btn-export-json");
@@ -443,12 +832,10 @@ function configurarExportacao() {
         btnCsv.addEventListener("click", async () => {
             try {
                 showCyberToast("Gerando exportação CSV...", "info");
-                const res = await fetch(`${API_URL}/transactions/${currentUserId}/export?format=csv`, {
-                    headers: getAuthHeaders(false)
-                });
+                const res = await fetch(`${API_URL}/transactions/${state.userId}/export?format=csv`, getFetchOptions("GET"));
                 if (!res.ok) throw new Error("Erro ao gerar CSV.");
                 const blob = await res.blob();
-                baixarArquivo(blob, `finance_tracker_${currentUserId}_${new Date().toISOString().slice(0, 10)}.csv`);
+                baixarArquivo(blob, `finance_tracker_${state.userId}_${new Date().toISOString().slice(0, 10)}.csv`);
                 showCyberToast("Download do CSV iniciado!", "success");
             } catch (err) {
                 showCyberToast("Falha ao exportar CSV.", "error");
@@ -460,13 +847,11 @@ function configurarExportacao() {
         btnJson.addEventListener("click", async () => {
             try {
                 showCyberToast("Gerando exportação JSON...", "info");
-                const res = await fetch(`${API_URL}/transactions/${currentUserId}/export?format=json`, {
-                    headers: getAuthHeaders(false)
-                });
+                const res = await fetch(`${API_URL}/transactions/${state.userId}/export?format=json`, getFetchOptions("GET"));
                 if (!res.ok) throw new Error("Erro ao gerar JSON.");
                 const data = await res.json();
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                baixarArquivo(blob, `finance_tracker_${currentUserId}_${new Date().toISOString().slice(0, 10)}.json`);
+                baixarArquivo(blob, `finance_tracker_${state.userId}_${new Date().toISOString().slice(0, 10)}.json`);
                 showCyberToast("Download do JSON iniciado!", "success");
             } catch (err) {
                 showCyberToast("Falha ao exportar JSON.", "error");
@@ -486,74 +871,140 @@ function baixarArquivo(blob, filename) {
     window.URL.revokeObjectURL(url);
 }
 
-// --- Modais: Edição & Confirmação ---
+// --- Modais: Edição, Exclusão, Orçamentos e Metas ---
 function configurarModais() {
-    // Fechar modais ao clicar no X ou fora
     const editModal = document.getElementById("edit-modal");
     const confirmModal = document.getElementById("confirm-modal");
+    const budgetModal = document.getElementById("budget-modal");
+    const goalModal = document.getElementById("goal-modal");
+    const depositGoalModal = document.getElementById("deposit-goal-modal");
 
+    // Gatilhos de Abertura
+    document.getElementById("btn-open-budget-modal")?.addEventListener("click", () => abrirModal(budgetModal));
+    document.getElementById("btn-open-goal-modal")?.addEventListener("click", () => abrirModal(goalModal));
+
+    // Fechamento de Modais
     document.getElementById("btn-close-edit-modal")?.addEventListener("click", () => fecharModal(editModal));
     document.getElementById("btn-cancel-edit")?.addEventListener("click", () => fecharModal(editModal));
 
     document.getElementById("btn-close-confirm-modal")?.addEventListener("click", () => fecharModal(confirmModal));
     document.getElementById("btn-confirm-cancel")?.addEventListener("click", () => fecharModal(confirmModal));
 
-    // Submissão do Form de Edição
-    const editForm = document.getElementById("edit-transaction-form");
-    if (editForm) {
-        editForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const id = document.getElementById("edit-id").value;
-            const payload = {
-                type: document.getElementById("edit-type").value,
-                amount: parseFloat(document.getElementById("edit-amount").value),
-                description: document.getElementById("edit-description").value,
-                category: document.getElementById("edit-category").value,
-                transaction_date: document.getElementById("edit-date").value
-            };
+    document.getElementById("btn-close-budget-modal")?.addEventListener("click", () => fecharModal(budgetModal));
+    document.getElementById("btn-cancel-budget")?.addEventListener("click", () => fecharModal(budgetModal));
 
-            try {
-                const res = await fetch(`${API_URL}/transactions/${id}`, {
-                    method: "PUT",
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify(payload)
-                });
+    document.getElementById("btn-close-goal-modal")?.addEventListener("click", () => fecharModal(goalModal));
+    document.getElementById("btn-cancel-goal")?.addEventListener("click", () => fecharModal(goalModal));
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || "Erro ao salvar alterações.");
+    document.getElementById("btn-close-deposit-goal-modal")?.addEventListener("click", () => fecharModal(depositGoalModal));
+    document.getElementById("btn-cancel-deposit-goal")?.addEventListener("click", () => fecharModal(depositGoalModal));
 
-                showCyberToast("Movimentação atualizada com sucesso!", "success");
-                fecharModal(editModal);
-                await carregarDados();
-            } catch (err) {
-                showCyberToast(err.message, "error");
-            }
-        });
-    }
+    // Submissão de Edição de Transação
+    document.getElementById("edit-transaction-form")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("edit-id").value;
+        const payload = {
+            type: document.getElementById("edit-type").value,
+            amount: parseFloat(document.getElementById("edit-amount").value),
+            description: document.getElementById("edit-description").value,
+            category: document.getElementById("edit-category").value,
+            transaction_date: document.getElementById("edit-date").value
+        };
 
-    // Ação de confirmar exclusão
-    const btnConfirmDelete = document.getElementById("btn-confirm-delete");
-    if (btnConfirmDelete) {
-        btnConfirmDelete.addEventListener("click", async () => {
-            if (!state.pendingDeleteId) return;
+        try {
+            const res = await fetch(`${API_URL}/transactions/${id}`, getFetchOptions("PUT", payload));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao salvar alterações.");
 
-            try {
-                const res = await fetch(`${API_URL}/transactions/${state.pendingDeleteId}`, {
-                    method: "DELETE",
-                    headers: getAuthHeaders(false)
-                });
+            showCyberToast("Movimentação atualizada com sucesso!", "success");
+            fecharModal(editModal);
+            await carregarTodosOsDados();
+        } catch (err) {
+            showCyberToast(err.message, "error");
+        }
+    });
 
-                if (!res.ok) throw new Error("Erro ao excluir transação.");
+    // Submissão de Confirmação de Exclusão
+    document.getElementById("btn-confirm-delete")?.addEventListener("click", async () => {
+        if (!state.pendingDeleteTxId) return;
+        try {
+            const res = await fetch(`${API_URL}/transactions/${state.pendingDeleteTxId}`, getFetchOptions("DELETE"));
+            if (!res.ok) throw new Error("Erro ao excluir transação.");
 
-                showCyberToast("Movimentação excluída com sucesso!", "success");
-                fecharModal(confirmModal);
-                state.pendingDeleteId = null;
-                await carregarDados();
-            } catch (err) {
-                showCyberToast("Não foi possível excluir a transação.", "error");
-            }
-        });
-    }
+            showCyberToast("Movimentação excluída com sucesso!", "success");
+            fecharModal(confirmModal);
+            state.pendingDeleteTxId = null;
+            await carregarTodosOsDados();
+        } catch (err) {
+            showCyberToast(err.message, "error");
+        }
+    });
+
+    // Submissão de Orçamento de Categoria
+    document.getElementById("budget-form")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+            category: document.getElementById("budget-category").value,
+            monthly_limit: parseFloat(document.getElementById("budget-limit").value)
+        };
+
+        try {
+            const res = await fetch(`${API_URL}/budgets`, getFetchOptions("POST", payload));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao salvar orçamento.");
+
+            showCyberToast(`Teto orçamentário para ${payload.category} definido!`, "success");
+            document.getElementById("budget-form").reset();
+            fecharModal(budgetModal);
+            await carregarOrcamentos();
+        } catch (err) {
+            showCyberToast(err.message, "error");
+        }
+    });
+
+    // Submissão de Nova Meta
+    document.getElementById("goal-form")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+            title: document.getElementById("goal-title").value,
+            target_amount: parseFloat(document.getElementById("goal-target").value),
+            current_amount: parseFloat(document.getElementById("goal-current").value || 0),
+            target_date: document.getElementById("goal-date").value || null
+        };
+
+        try {
+            const res = await fetch(`${API_URL}/goals`, getFetchOptions("POST", payload));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao criar meta.");
+
+            showCyberToast(`Meta "${payload.title}" criada com sucesso!`, "success");
+            document.getElementById("goal-form").reset();
+            fecharModal(goalModal);
+            await carregarMetas();
+        } catch (err) {
+            showCyberToast(err.message, "error");
+        }
+    });
+
+    // Submissão de Aporte em Meta
+    document.getElementById("deposit-goal-form")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("deposit-goal-id").value;
+        const addAmount = parseFloat(document.getElementById("deposit-goal-amount").value);
+
+        try {
+            const res = await fetch(`${API_URL}/goals/${id}`, getFetchOptions("PUT", { add_amount: addAmount }));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao registrar aporte.");
+
+            showCyberToast(`Aporte de ${formatCurrency(addAmount)} registrado!`, "success");
+            document.getElementById("deposit-goal-form").reset();
+            fecharModal(depositGoalModal);
+            await carregarMetas();
+        } catch (err) {
+            showCyberToast(err.message, "error");
+        }
+    });
 }
 
 function fecharModal(modal) {
@@ -564,9 +1015,12 @@ function abrirModal(modal) {
     if (modal) modal.classList.remove("hidden");
 }
 
-// Chamado a partir do botão Editar
+function fecharTodosModais() {
+    document.querySelectorAll(".modal-overlay").forEach(m => m.classList.add("hidden"));
+}
+
 window.abrirModalEdicao = function(id) {
-    const tx = state.allTransactions.find(t => t.id === id);
+    const tx = state.transactions.find(t => t.id === id);
     if (!tx) return;
 
     document.getElementById("edit-id").value = tx.id;
@@ -579,15 +1033,14 @@ window.abrirModalEdicao = function(id) {
     abrirModal(document.getElementById("edit-modal"));
 };
 
-// Chamado a partir do botão Excluir
 window.solicitarExclusao = function(id) {
-    state.pendingDeleteId = id;
+    state.pendingDeleteTxId = id;
     abrirModal(document.getElementById("confirm-modal"));
 };
 
 function escapeHtml(str) {
     if (!str) return "";
-    return str.replace(/[&<>"']/g, function(m) {
+    return String(str).replace(/[&<>"']/g, function(m) {
         return {
             '&': '&amp;',
             '<': '&lt;',

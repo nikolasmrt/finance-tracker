@@ -23,15 +23,34 @@
                     </linearGradient>
                 </defs>
             </svg>
-            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.0</span></h1>
+            <h1>Finance<span>Tracker</span> <span class="badge-version">v2.1</span></h1>
         </div>
 
-        <div class="user-profile">
-            <div class="user-info-chip">
-                <span class="user-status-dot"></span>
-                <span id="user-display">Carregando...</span>
+        <div class="navbar-actions">
+            <!-- Alternador de Moeda -->
+            <div class="currency-control">
+                <label for="currency-select" class="sr-only">Moeda</label>
+                <select id="currency-select" class="select-chip" title="Selecionar moeda de exibição">
+                    <option value="BRL">🇧🇷 BRL (R$)</option>
+                    <option value="USD">🇺🇸 USD ($)</option>
+                    <option value="EUR">🇪🇺 EUR (€)</option>
+                </select>
             </div>
-            <button id="logout-btn" class="btn-logout" title="Encerrar sessão">Sair</button>
+
+            <!-- Alternador de Tema: Cyberpunk vs Clean -->
+            <button id="theme-toggle-btn" class="btn-theme-toggle" title="Alternar entre tema Cyberpunk e Clean Minimal">
+                <span id="theme-icon">⚡</span> <span id="theme-label">Cyberpunk</span>
+            </button>
+
+            <!-- Perfil do Usuário e Status -->
+            <div class="user-profile">
+                <div class="user-info-chip">
+                    <span class="user-status-dot"></span>
+                    <span id="user-display">Carregando...</span>
+                    <span id="demo-badge-indicator" class="guest-pill hidden">MODO DEMO</span>
+                </div>
+                <button id="logout-btn" class="btn-logout" title="Encerrar sessão">Sair</button>
+            </div>
         </div>
     </header>
 
@@ -65,12 +84,12 @@
             </div>
         </section>
 
-        <!-- SEÇÃO DE PREVISÃO INTELIGENTE (30 DIAS) -->
+        <!-- SEÇÃO DE PREVISÃO INTELIGENTE & SIMULADOR DE CENÁRIOS (30 DIAS) -->
         <section class="forecast-section card">
             <div class="forecast-header">
                 <div>
                     <h2>🔮 Previsão Inteligente & Projeção (30 Dias)</h2>
-                    <p class="forecast-tagline">Análise preditiva em tempo real baseada no seu padrão de gastos e receitas.</p>
+                    <p class="forecast-tagline">Análise preditiva em tempo real baseada no seu ritmo de movimentações.</p>
                 </div>
                 <div id="forecast-badge" class="forecast-badge badge-neutral">Analisando...</div>
             </div>
@@ -100,6 +119,68 @@
                     <p id="forecast-message" class="forecast-advice">Adicione movimentações para gerar projeções analíticas.</p>
                 </div>
             </div>
+
+            <!-- SIMULADOR DE CENÁRIOS E PROJEÇÕES FUTURAS ("E SE...") -->
+            <div class="scenario-simulator">
+                <div class="sim-header">
+                    <h4>⚡ Simulador de Cenários Futuros ("E se...")</h4>
+                    <span class="sim-badge">Simulação em Tempo Real</span>
+                </div>
+                <div class="sim-body">
+                    <div class="sim-control-group">
+                        <label for="sim-category">Categoria para corte:</label>
+                        <select id="sim-category">
+                            <option value="all">Todas as Despesas</option>
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Moradia">Moradia</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Lazer">Lazer</option>
+                            <option value="Estudo">Estudo</option>
+                            <option value="Saúde">Saúde</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+
+                    <div class="sim-control-group range-group">
+                        <label for="sim-slider">Redução de gastos: <strong id="sim-pct-display" class="text-cyan">15%</strong></label>
+                        <input type="range" id="sim-slider" min="0" max="60" step="5" value="15">
+                    </div>
+
+                    <div class="sim-result-box">
+                        <span class="sim-res-label">Economia Projetada (30d):</span>
+                        <strong id="sim-savings-val" class="sim-res-val text-income">+ R$ 0,00</strong>
+                        <span id="sim-new-balance" class="sim-res-sub">Novo saldo projetado: R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE ORÇAMENTOS POR CATEGORIA (BUDGET LIMITS) -->
+        <section class="budgets-section card">
+            <div class="section-header-flex">
+                <div>
+                    <h2>🎯 Orçamentos Mensais por Categoria</h2>
+                    <p class="section-tagline">Defina limites mensais para controlar despesas antes que saiam do controle.</p>
+                </div>
+                <button id="btn-open-budget-modal" class="btn-secondary">+ Definir Teto</button>
+            </div>
+            <div id="budgets-list" class="budgets-grid">
+                <p class="empty-msg">Nenhum teto orçamentário configurado ainda. Clique em "+ Definir Teto".</p>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE METAS FINANCEIRAS (SAVINGS GOALS) -->
+        <section class="goals-section card">
+            <div class="section-header-flex">
+                <div>
+                    <h2>🏆 Metas de Economia & Sonhos</h2>
+                    <p class="section-tagline">Acompanhe seu progresso para viagens, reservas de emergência e compras.</p>
+                </div>
+                <button id="btn-open-goal-modal" class="btn-secondary">+ Nova Meta</button>
+            </div>
+            <div id="goals-list" class="goals-grid">
+                <p class="empty-msg">Nenhuma meta cadastrada ainda. Clique em "+ Nova Meta".</p>
+            </div>
         </section>
 
         <!-- Grid de Operações e Histórico -->
@@ -107,7 +188,10 @@
             
             <!-- Formulário de Nova Movimentação -->
             <section class="form-section card">
-                <h2>➕ Nova Movimentação</h2>
+                <div class="form-title-flex">
+                    <h2>➕ Nova Movimentação</h2>
+                    <span class="shortcut-tag" title="Atalho de teclado">[N]</span>
+                </div>
                 <form id="transaction-form">
                     <div class="form-group">
                         <label for="type">Tipo de Operação</label>
@@ -118,7 +202,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="amount">Valor (R$)</label>
+                        <label for="amount">Valor</label>
                         <input type="number" id="amount" step="0.01" placeholder="0.00" min="0.01" required>
                     </div>
 
@@ -151,7 +235,7 @@
                 </form>
             </section>
 
-            <!-- Histórico Recente de Transações com Filtros Avançados -->
+            <!-- Histórico Recente de Transações com Filtros Avançados e Paginação -->
             <section class="history-section card">
                 <div class="history-header">
                     <h2>📜 Histórico de Movimentações</h2>
@@ -164,7 +248,7 @@
                 <!-- Barra de Filtros e Busca -->
                 <div class="filters-bar">
                     <div class="search-input-wrapper">
-                        <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição..." autocomplete="off">
+                        <input type="text" id="filter-search" placeholder="🔍 Buscar por descrição... [F]" autocomplete="off">
                     </div>
 
                     <div class="filter-controls">
@@ -195,6 +279,13 @@
                 <div id="transactions-list" class="transactions-list">
                     <p class="empty-msg">Nenhuma movimentação registrada ainda.</p>
                 </div>
+
+                <!-- Barra de Paginação Serverless -->
+                <div class="pagination-bar">
+                    <button id="btn-prev-page" class="btn-page" disabled>⏮ Anterior</button>
+                    <span id="page-indicator" class="page-indicator">Página 1 de 1 (0 registros)</span>
+                    <button id="btn-next-page" class="btn-page" disabled>Próxima ⏭</button>
+                </div>
             </section>
 
         </div>
@@ -218,6 +309,14 @@
             </div>
         </section>
 
+        <!-- Barra de Dicas e Atalhos de Teclado -->
+        <footer class="shortcuts-helper-bar">
+            <span>⌨️ Atalhos de teclado:</span>
+            <code>[N]</code> <span>Nova movimentação</span>
+            <code>[F]</code> <span>Focar busca</span>
+            <code>[ESC]</code> <span>Fechar modais</span>
+        </footer>
+
     </main>
 
     <!-- Modal de Edição de Transação -->
@@ -239,7 +338,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="edit-amount">Valor (R$)</label>
+                    <label for="edit-amount">Valor</label>
                     <input type="number" id="edit-amount" step="0.01" min="0.01" required>
                 </div>
 
@@ -288,6 +387,93 @@
                 <button id="btn-confirm-cancel" class="btn-secondary">Cancelar</button>
                 <button id="btn-confirm-delete" class="btn-danger">Confirmar Exclusão</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal para Configurar Orçamento de Categoria -->
+    <div id="budget-modal" class="modal-overlay hidden">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>🎯 Configurar Teto Orçamentário</h3>
+                <button id="btn-close-budget-modal" class="btn-close-modal">&times;</button>
+            </div>
+            <form id="budget-form">
+                <div class="form-group">
+                    <label for="budget-category">Categoria</label>
+                    <select id="budget-category" required>
+                        <option value="Alimentação">Alimentação</option>
+                        <option value="Moradia">Moradia</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Estudo">Estudo</option>
+                        <option value="Lazer">Lazer</option>
+                        <option value="Saúde">Saúde</option>
+                        <option value="Investimentos">Investimentos</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="budget-limit">Teto Mensal Máximo</label>
+                    <input type="number" id="budget-limit" step="0.01" min="1.00" placeholder="Ex: 1000.00" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-cancel-budget" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-submit-modal">Salvar Orçamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Nova Meta de Economia -->
+    <div id="goal-modal" class="modal-overlay hidden">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>🏆 Nova Meta Financeira</h3>
+                <button id="btn-close-goal-modal" class="btn-close-modal">&times;</button>
+            </div>
+            <form id="goal-form">
+                <div class="form-group">
+                    <label for="goal-title">Título da Meta</label>
+                    <input type="text" id="goal-title" placeholder="Ex: Viagem de Férias, Reserva de Emergência..." required maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="goal-target">Valor Almejado</label>
+                    <input type="number" id="goal-target" step="0.01" min="1.00" placeholder="Ex: 5000.00" required>
+                </div>
+                <div class="form-group">
+                    <label for="goal-current">Valor Já Poupado (Inicial)</label>
+                    <input type="number" id="goal-current" step="0.01" min="0.00" placeholder="0.00" value="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="goal-date">Data Alvo (Opcional)</label>
+                    <input type="date" id="goal-date">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-cancel-goal" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-submit-modal">Criar Meta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Aporte em Meta -->
+    <div id="deposit-goal-modal" class="modal-overlay hidden">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>💰 Aporte em Meta Financeira</h3>
+                <button id="btn-close-deposit-goal-modal" class="btn-close-modal">&times;</button>
+            </div>
+            <form id="deposit-goal-form">
+                <input type="hidden" id="deposit-goal-id">
+                <p id="deposit-goal-title" class="modal-subtitle">Aportando na meta...</p>
+                <div class="form-group">
+                    <label for="deposit-goal-amount">Valor do Aporte</label>
+                    <input type="number" id="deposit-goal-amount" step="0.01" min="0.01" placeholder="Ex: 250.00" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-cancel-deposit-goal" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-submit-modal">Confirmar Aporte</button>
+                </div>
+            </form>
         </div>
     </div>
 

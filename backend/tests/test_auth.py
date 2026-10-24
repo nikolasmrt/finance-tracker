@@ -32,14 +32,34 @@ def test_register_and_login_success(client):
     assert "access_token" in login_data
     assert login_data["user"]["email"] == unique_email
 
-    # Verificação de Perfil (/me)
+    # Verificação de Perfil (/me) via Cookie ou Header
     token = login_data["access_token"]
     me_res = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
     assert me_res.status_code == 200
     assert me_res.json()["id"] == user_data["id"]
 
+def test_demo_mode_session(client):
+    """Testa o Modo Convidado 1-Click sem necessidade de senha nem registro."""
+    res = client.post("/api/demo")
+    assert res.status_code == 201
+    data = res.json()
+    assert data["is_demo"] is True
+    assert "access_token" in data
+    assert "guest_" in data["user"]["email"]
+    assert "access_token" in res.cookies
+
+    # Acessa /me utilizando o cookie retornado
+    me_res = client.get("/api/me", cookies=res.cookies)
+    assert me_res.status_code == 200
+    assert me_res.json()["is_demo"] is True
+
+def test_logout_clears_session(client):
+    """Testa encerramento de sessão."""
+    res = client.post("/api/logout")
+    assert res.status_code == 200
+
 def test_register_duplicate_email(client):
-    email = "duplicate@example.com"
+    email = f"duplicate_{uuid.uuid4().hex[:6]}@example.com"
     client.post("/api/register", json={
         "name": "Original",
         "email": email,

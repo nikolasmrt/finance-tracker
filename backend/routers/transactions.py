@@ -1,7 +1,8 @@
-from datetime import date, timedelta
-from typing import Optional, List
+import math
 import io
 import csv
+from datetime import date, timedelta
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from fastapi.responses import StreamingResponse
 
@@ -12,7 +13,9 @@ from schemas import (
     TransactionResponse,
     TransactionsSummary,
     CategoryBreakdownItem,
-    SmartForecast
+    SmartForecast,
+    PaginatedTransactionsResponse,
+    PaginationMeta
 )
 from routers.auth import get_current_user_optional
 
@@ -41,115 +44,158 @@ def create_transaction(
         new_tx = cursor.fetchone()
         return {"message": "Transação criada com sucesso!", "transaction": new_tx}
 
-@router.get("/transactions/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/transactions/{user_id}", response_model=PaginatedTransactionsResponse, status_code=status.HTTP_200_OK)
 def get_transactions(
     user_id: int,
+    page: int = Query(1, ge=1, description="Número da página atual"),
+    limit: int = Query(10, ge=1, le=100, description="Registros por página"),
     type: Optional[str] = Query(None, description="Filtrar por tipo: 'income' ou 'expense'"),
     category: Optional[str] = Query(None, description="Filtrar por categoria específica"),
     search: Optional[str] = Query(None, description="Busca textual na descrição"),
     start_date: Optional[date] = Query(None, description="Data inicial do filtro"),
     end_date: Optional[date] = Query(None, description="Data final do filtro"),
-    limit: int = Query(200, ge=1, le=1000, description="Limite de registros a retornar")
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
-    Lista o histórico de movimentações financeiras de um utilizador,
-    suportando filtros avançados por tipo, categoria, intervalo de datas e busca por descrição.
+    Lista movimentações financeiras com suporte a paginação serverless,
+    filtros avançados e busca textual.
     """
-    query = """
-        SELECT id, user_id, type, amount, description, category, transaction_date 
-        FROM transactions 
-        WHERE user_id = %s
-    """
-    params = [user_id]
+    effective_user_id = current_user["id"] if current_user else user_id
+
+    base_where = "WHERE user_id = %s"
+    params = [effective_user_id]
 
     if type in ("income", "expense"):
-        query += " AND type = %s"
+        base_where += " AND type = %s"
         params.append(type)
 
     if category:
-        query += " AND category = %s"
+        base_where += " AND category = %s"
         params.append(category)
 
     if search:
-        query += " AND description ILIKE %s"
+        base_where += " AND description ILIKE %s"
         params.append(f"%{search.strip()}%")
 
     if start_date:
-        query += " AND transaction_date >= %s"
+        base_where += " AND transaction_date >= %s"
         params.append(start_date)
 
     if end_date:
-        query += " AND transaction_date <= %s"
+        base_where += " AND transaction_date <= %s"
         params.append(end_date)
 
-    query += " ORDER BY transaction_date DESC, id DESC LIMIT %s;"
-    params.append(limit)
+    count_query = f"SELECT COUNT(*) as total FROM transactions {base_where};"
+
+    offset = (page - 1) * limit
+    data_query = f"""
+        SELECT id, user_id, type, amount, description, category, transaction_date 
+        FROM transactions 
+        {base_where}
+        ORDER BY transaction_date DESC, id DESC
+        LIMIT %s OFFSET %s;
+    """
 
     with get_db_cursor(commit=False) as cursor:
-        cursor.execute(query, tuple(params))
+        cursor.execute(count_query, tuple(params))
+        total_records = cursor.fetchone()["total"]
+
+        cursor.execute(data_query, tuple(params + [limit, offset]))
         transactions = cursor.fetchall()
-        return {"transactions": transactions, "total_count": len(transactions)}
+
+    total_pages = max(1, math.ceil(total_records / limit))
+
+    return {
+        "transactions": transactions,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total_records": total_records,
+            "total_pages": total_pages
+        }
+    }
 
 @router.get("/transactions/{user_id}/summary", response_model=TransactionsSummary)
-def get_transactions_summary(user_id: int):
+def get_transactions_summary(
+    user_id: int,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     """
-    Retorna o resumo consolidado do utilizador com totais, balanço,
-    distribuição por categoria e cálculo de Previsão Inteligente para 30 dias.
+    Retorna o resumo consolidado do utilizador com cálculos de agregações (SUM, COUNT)
+    otimizados diretamente no PostgreSQL, além da Previsão Inteligente 30d.
     """
+    effective_user_id = current_user["id"] if current_user else user_id
+
     with get_db_cursor(commit=False) as cursor:
-        # Busca todas as transações do utilizador
+        # 1. Totais de receitas e despesas agregados no banco
         cursor.execute(
             """
-            SELECT id, type, amount, description, category, transaction_date 
+            SELECT 
+                type, 
+                COALESCE(SUM(amount), 0) AS total, 
+                COUNT(*) AS count 
             FROM transactions 
             WHERE user_id = %s 
-            ORDER BY transaction_date ASC;
+            GROUP BY type;
             """,
-            (user_id,)
+            (effective_user_id,)
         )
-        transactions = cursor.fetchall()
+        type_totals = {row["type"]: float(row["total"]) for row in cursor.fetchall()}
+        total_income = type_totals.get("income", 0.0)
+        total_expense = type_totals.get("expense", 0.0)
+        net_balance = round(total_income - total_expense, 2)
 
-    total_income = 0.0
-    total_expense = 0.0
-    cat_map = {}
-    dates = []
+        # 2. Agrupamento por categoria diretamente via SQL
+        cursor.execute(
+            """
+            SELECT 
+                category,
+                COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS total_income,
+                COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expense,
+                COUNT(*) AS count
+            FROM transactions 
+            WHERE user_id = %s 
+            GROUP BY category
+            ORDER BY (COALESCE(SUM(amount), 0)) DESC;
+            """,
+            (effective_user_id,)
+        )
+        cat_rows = cursor.fetchall()
 
-    for tx in transactions:
-        amt = float(tx["amount"])
-        cat = tx["category"]
-        tx_type = tx["type"]
-        tx_date = tx["transaction_date"]
-        dates.append(tx_date)
-
-        if cat not in cat_map:
-            cat_map[cat] = {"income": 0.0, "expense": 0.0, "count": 0}
-
-        cat_map[cat]["count"] += 1
-
-        if tx_type == "income":
-            total_income += amt
-            cat_map[cat]["income"] += amt
-        else:
-            total_expense += amt
-            cat_map[cat]["expense"] += amt
-
-    net_balance = round(total_income - total_expense, 2)
+        # 3. Intervalo de datas para a Previsão Inteligente
+        cursor.execute(
+            """
+            SELECT 
+                MIN(transaction_date) as first_date, 
+                MAX(transaction_date) as last_date, 
+                COUNT(*) as total_count
+            FROM transactions 
+            WHERE user_id = %s;
+            """,
+            (effective_user_id,)
+        )
+        date_stats = cursor.fetchone()
 
     categories_list = []
-    for cat_name, stats in cat_map.items():
+    for row in cat_rows:
+        inc = float(row["total_income"])
+        exp = float(row["total_expense"])
         categories_list.append(CategoryBreakdownItem(
-            category=cat_name,
-            total_income=round(stats["income"], 2),
-            total_expense=round(stats["expense"], 2),
-            net=round(stats["income"] - stats["expense"], 2),
-            count=stats["count"]
+            category=row["category"],
+            total_income=round(inc, 2),
+            total_expense=round(exp, 2),
+            net=round(inc - exp, 2),
+            count=int(row["count"])
         ))
-    categories_list.sort(key=lambda c: (c.total_expense + c.total_income), reverse=True)
 
-    # --- Previsão Inteligente para 30 dias ---
+    total_transactions_count = int(date_stats["total_count"]) if date_stats else 0
+    first_date = date_stats["first_date"] if date_stats else None
+    last_date = date_stats["last_date"] if date_stats else None
+
+    # Cálculo da Previsão Inteligente para 30 dias
     days_span = 30
-    if len(dates) >= 2:
-        diff_days = max(1, (dates[-1] - dates[0]).days)
+    if first_date and last_date:
+        diff_days = max(1, (last_date - first_date).days)
         days_span = min(max(diff_days, 7), 90)
 
     daily_avg_expense = total_expense / days_span if total_expense > 0 else 0.0
@@ -161,7 +207,7 @@ def get_transactions_summary(user_id: int):
 
     savings_rate = round(((total_income - total_expense) / total_income) * 100, 1) if total_income > 0 else 0.0
 
-    if not transactions:
+    if total_transactions_count == 0:
         status_forecast = "neutral"
         forecast_msg = "Adicione as suas primeiras movimentações para gerar projeções analíticas."
     elif projected_balance_30d >= net_balance and net_balance >= 0:
@@ -172,7 +218,7 @@ def get_transactions_summary(user_id: int):
         forecast_msg = f"Atenção: no ritmo atual de gastos (R$ {round(daily_avg_expense, 2):.2f}/dia), seu saldo pode ficar negativo."
     else:
         status_forecast = "warning"
-        forecast_msg = f"Ritmo de gastos moderado. Controle despesas para manter o saldo positivo nos próximos 30 dias."
+        forecast_msg = "Ritmo de gastos moderado. Controle despesas para manter o saldo positivo nos próximos 30 dias."
 
     forecast = SmartForecast(
         daily_average_expense=round(daily_avg_expense, 2),
@@ -189,7 +235,7 @@ def get_transactions_summary(user_id: int):
         total_deposits=round(total_income, 2),
         total_expenses=round(total_expense, 2),
         net_balance=net_balance,
-        transactions_count=len(transactions),
+        transactions_count=total_transactions_count,
         categories=categories_list,
         forecast=forecast
     )
@@ -201,7 +247,7 @@ def update_transaction(
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
-    Atualiza os campos de uma movimentação financeira existente.
+    Atualiza campos de uma transação existente com verificação de propriedade.
     """
     with get_db_cursor(commit=True) as cursor:
         cursor.execute("SELECT id, user_id FROM transactions WHERE id = %s;", (transaction_id,))
@@ -213,7 +259,6 @@ def update_transaction(
                 detail="Transação não encontrada."
             )
 
-        # Se houver usuário autenticado no token, garante que só altera o próprio registro
         if current_user and existing_tx["user_id"] != current_user["id"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -266,7 +311,7 @@ def delete_transaction(
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
-    Remove fisicamente um registo de transação com verificação de permissão.
+    Remove fisicamente um registo de transação com verificação de integridade e permissão.
     """
     with get_db_cursor(commit=True) as cursor:
         cursor.execute("SELECT id, user_id FROM transactions WHERE id = %s;", (transaction_id,))
@@ -290,11 +335,14 @@ def delete_transaction(
 @router.get("/transactions/{user_id}/export", status_code=status.HTTP_200_OK)
 def export_transactions(
     user_id: int,
-    format: str = Query("csv", pattern="^(csv|json)$")
+    format: str = Query("csv", pattern="^(csv|json)$"),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
     Exporta todo o histórico do utilizador nos formatos CSV ou JSON.
     """
+    effective_user_id = current_user["id"] if current_user else user_id
+
     with get_db_cursor(commit=False) as cursor:
         cursor.execute(
             """
@@ -303,7 +351,7 @@ def export_transactions(
             WHERE user_id = %s 
             ORDER BY transaction_date DESC, id DESC;
             """,
-            (user_id,)
+            (effective_user_id,)
         )
         transactions = cursor.fetchall()
 
@@ -324,7 +372,7 @@ def export_transactions(
         return StreamingResponse(
             io.BytesIO(output.getvalue().encode("utf-8-sig")),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=finance_tracker_user_{user_id}.csv"}
+            headers={"Content-Disposition": f"attachment; filename=finance_tracker_user_{effective_user_id}.csv"}
         )
 
     return {"transactions": transactions}

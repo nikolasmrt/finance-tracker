@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Carrega .env a partir da diretoria do backend ou da raiz do projeto
+# Carrega .env a partir do diretório do backend ou da raiz do projeto
 env_backend = Path(__file__).resolve().parent / ".env"
 if env_backend.exists():
     load_dotenv(dotenv_path=env_backend)
@@ -20,23 +20,30 @@ def get_database_url() -> str:
 
 def get_db_connection():
     """
-    Estabelece e retorna uma conexão ativa com o servidor PostgreSQL.
-    Lança uma exceção caso a variável DATABASE_URL não esteja definida.
+    Estabelece e retorna uma conexão ativa com o servidor PostgreSQL,
+    otimizada para ambientes Serverless (como Vercel e Neon).
+    Configura timeouts agressivos para evitar bloqueio de lambdas.
     """
     database_url = get_database_url()
     try:
-        conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+        # Configurações otimizadas para Serverless e Neon Pooler
+        conn = psycopg2.connect(
+            database_url,
+            cursor_factory=RealDictCursor,
+            connect_timeout=8,
+            application_name="finance_tracker_vercel"
+        )
         return conn
     except Exception as e:
-        print(f"Erro crítico ao conectar ao banco de dados PostgreSQL: {e}")
+        print(f"Erro crítico ao conectar ao PostgreSQL Serverless: {e}")
         raise e
 
 @contextmanager
 def get_db_cursor(commit: bool = True):
     """
-    Context manager seguro para conexões e cursores no PostgreSQL.
-    Garante commit automático em caso de sucesso e rollback em exceções,
-    além de fechar cursores e conexões no bloco finally.
+    Context manager seguro para conexões e cursores no PostgreSQL Serverless.
+    Garante commit automático em caso de sucesso, rollback em exceções e
+    fechamento imediato da conexão no bloco finally para liberar pools de conexões.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -48,5 +55,11 @@ def get_db_cursor(commit: bool = True):
         conn.rollback()
         raise
     finally:
-        cursor.close()
-        conn.close()
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass

@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from datetime import date
 from typing import Optional, Dict, Any, List
 
-# --- Schemas de Utilizadores ---
+# --- Schemas de Utilizadores & Sessão ---
 
 class UserCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Nome completo do utilizador")
@@ -18,11 +18,19 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    is_demo: bool = False
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+class DemoSessionResponse(BaseModel):
+    message: str
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+    is_demo: bool = True
 
 # --- Schemas de Transações Financeiras ---
 
@@ -65,6 +73,16 @@ class TransactionResponse(BaseModel):
     category: str
     transaction_date: date
 
+class PaginationMeta(BaseModel):
+    page: int
+    limit: int
+    total_records: int
+    total_pages: int
+
+class PaginatedTransactionsResponse(BaseModel):
+    transactions: List[TransactionResponse]
+    pagination: PaginationMeta
+
 # --- Schemas de Resumo Analítico e Previsão Inteligente ---
 
 class CategoryBreakdownItem(BaseModel):
@@ -91,3 +109,44 @@ class TransactionsSummary(BaseModel):
     transactions_count: int
     categories: List[CategoryBreakdownItem]
     forecast: SmartForecast
+
+# --- Schemas de Orçamentos por Categoria (Budgets) ---
+
+class BudgetCreate(BaseModel):
+    category: str = Field(..., min_length=1, max_length=50, description="Nome da categoria")
+    monthly_limit: float = Field(..., gt=0, description="Teto máximo de gasto mensal")
+
+class BudgetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    category: str
+    monthly_limit: float
+    spent_this_month: float = 0.0
+    percentage_used: float = 0.0
+    status: str = "safe"  # safe (<70%), warning (70-90%), exceeded (>90%)
+
+# --- Schemas de Metas de Economia (Savings Goals) ---
+
+class GoalCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100, description="Título da meta")
+    target_amount: float = Field(..., gt=0, description="Valor total almejado")
+    current_amount: Optional[float] = Field(default=0.0, ge=0, description="Valor inicial já poupado")
+    target_date: Optional[date] = Field(default=None, description="Data estimada para conclusão")
+
+class GoalUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    target_amount: Optional[float] = Field(default=None, gt=0)
+    current_amount: Optional[float] = Field(default=None, ge=0)
+    add_amount: Optional[float] = Field(default=None, gt=0, description="Aporte rápido na meta")
+    target_date: Optional[date] = None
+
+class GoalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    title: str
+    target_amount: float
+    current_amount: float
+    target_date: Optional[date] = None
+    progress_percentage: float = 0.0
